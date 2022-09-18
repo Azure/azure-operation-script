@@ -1,0 +1,31 @@
+```
+- Fix
+  - Exclude Databricks Storage Account
+- Application Gateway
+  - Rule Configuration
+  - Firewall Policy Update
+  - Integrate API Management
+- Availability Zone Enablement
+  - Support more services
+    - Azure Cosmos DB
+    - Azure Database for MySQL
+    - Azure Database for PostgreSQL
+- Well-Architected Framework Operational Excellence
+  - Check resource group that contain no resource
+  - Service Health Alert configuration, verify location where user deployed the services that is configured the Region based service alert (TBC)
+  - Resource Health Alert (TBC)
+- Well-Architected Framework Security
+  - Resource Lock of subscription and resource group level
+  - Each VNet Subnet should associate a Network Security Group (NSG)
+  - Microsoft Defender (TBC)
+  - Get-AzDdosProtectionPlan > Get Azure DDoS Standard enabled in all VNET, highlight subnet with Firewall, Gateway, AppGW (TBC)
+  - Get Service Endpoint Status of all VNet Subnet (TBC)
+  - Get Management Group hierarchy (TBC)
+- PaaS Networking
+  - Get Key Vault, Container Registry
+  - Check Private Endpoint Status
+-Azure Database for MySQL
+  - Get Backup retention and redundancy option
+- Cosmos DB
+  - Get Backup Info (periodic mode backup policy includes Backup Interval, Retention, Copies of data retained, storage redundancy) and (continuous backup mode)
+```
