@@ -147,7 +147,7 @@ foreach ($Subscription in $Global:Subscriptions) {
     Write-Host ("[LOG] " + (Get-Date -Format "yyyy-MM-dd hh:mm")) -ForegroundColor White -BackgroundColor Black
     
     # Set current subscription
-    $AzContext = Set-AzContext -SubscriptionId $Subscription.Id
+    $AzContext = Set-AzContext -SubscriptionId $Subscription.Id -TenantId $Subscription.TenantId
     Write-Host ("`nProcessing " + $CurrentItem + " out of " + $Global:Subscriptions.Count + " Subscription: " + $Subscription.name) -ForegroundColor Yellow
     $CurrentItem++
 
@@ -180,6 +180,10 @@ foreach ($Subscription in $Global:Subscriptions) {
         $LocalTempList = $using:TempList
         $CurrentDiagnosticSetting = @()
         $CurrentExportPath = ($using:Global:ExcelOutputFolder + "DiagnosticSettingTempFile" + $_ + ".csv")
+
+        # Wait
+        $num = Get-Random -Minimum 1 -Maximum 10
+        Start-Sleep -Seconds $num
 
         # Initialize
         $AzContext = Set-AzContext -SubscriptionId $CurrentSubscriptionId 
