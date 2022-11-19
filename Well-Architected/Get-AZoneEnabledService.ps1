@@ -152,8 +152,9 @@ foreach ($Subscription in $Global:Subscriptions) {
     
     foreach ($AksCluster in $AksClusters) {
         foreach ($AgentPool in $AksClusters.AgentPoolProfiles) {
-            $ResourceGroupName = $AksCluster.NodeResourceGroup.Substring($AksCluster.NodeResourceGroup.IndexOf("_") + 1) # Assume NodeResourceGroup is default name
-            $ResourceGroupName = $ResourceGroupName.Substring(0, $ResourceGroupName.IndexOf("_"))
+            #$ResourceGroupName = $AksCluster.NodeResourceGroup.Substring($AksCluster.NodeResourceGroup.IndexOf("_") + 1) # Assume Infrastructure resource group is default name which start with MC_
+            #$ResourceGroupName = $ResourceGroupName.Substring(0, $ResourceGroupName.IndexOf("_"))
+            [string]$ResourceGroupName = $AksCluster.NodeResourceGroup
             $InstanceTypeDetail = ($AgentPool.Mode + " Pool")
             $remark = ("Agent Pool Name: " + $AgentPool.Name)
             [array]$array = $AgentPool.AvailabilityZones  
@@ -181,7 +182,7 @@ foreach ($Subscription in $Global:Subscriptions) {
         $sku = $vng.Sku.Tier
         
         # Primary Public IP Address
-        $PrimaryIpConfig = $vng.IpConfigurations | ? {$_.Name -eq "default" -or $_.Name -eq "GatewayIPConfig"}
+        $PrimaryIpConfig = $vng.IpConfigurations | ? {$_.Name -eq "default" -or $_.Name -eq "GatewayIPConfig" -or $_.Name -like "gwipconfig*"}
         $PublicIpResourceId = $PrimaryIpConfig.PublicIpAddress.Id
         $PublicIpRg = $PublicIpResourceId.Substring($PublicIpResourceId.IndexOf("resourceGroups/") + ("resourceGroups/".Length))
         $PublicIpRg = $PublicIpRg.Substring(0, $PublicIpRg.IndexOf("/providers/Microsoft.Network/"))
