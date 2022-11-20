@@ -1,0 +1,3 @@
+﻿RTSubscription,RTResourceGroup,RTName,VNetSubscription,VNetResourceGroup,VNetName,VNetSubnetName
+Sub1,RT1,Gateway_PRD,Sub1,RG1,PRD_vnet,GatewaySubnet
+Sub1,RT2,apimgmt_PRD,Sub1,RG1,apimgmt_vnet,apimgmt_vnet

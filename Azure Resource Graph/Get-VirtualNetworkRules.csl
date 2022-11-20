@@ -1,0 +1,49 @@
+// indexof lookup case sensitive string, /virtualnetworks/ and /virtualNetworks/ both occur depends on resource type
+
+// Resource Type
+// https://github.com/globalbao/azure-resource-graph/blob/master/README.md#star-azgraph-queries-w-export-to-json
+
+// KeyVault and Storage Account
+Resources
+//| where type =~ 'microsoft.keyvault/vaults'
+//| where type =~ 'microsoft.storage/storageaccounts'
+| where isnotempty(properties.networkAcls.virtualNetworkRules) and isnotnull(properties.networkAcls.virtualNetworkRules) 
+| where tostring(properties.networkAcls.virtualNetworkRules) != '[]'
+| mv-expand rules = properties.networkAcls.virtualNetworkRules
+| extend allowed_vnet_subnet = substring(tostring(rules.id), indexof(tostring(rules.id), '/virtual'))
+| where allowed_vnet_subnet contains 'subnet-sit-aks-agentnodepool-1'
+| project type, resourceGroup, name, allowed_vnet_subnet, subscriptionId
+| order by type, name asc
+
+// KeyVault
+Resources
+| where type =~ 'microsoft.keyvault/vaults'
+| where isnotempty(properties.networkAcls.virtualNetworkRules) and isnotnull(properties.networkAcls.virtualNetworkRules) 
+| where tostring(properties.networkAcls.virtualNetworkRules) != '[]'
+| mv-expand rules = properties.networkAcls.virtualNetworkRules
+| extend allowed_vnet_subnet = substring(tostring(rules.id), indexof(tostring(rules.id), '/virtual'))
+| where allowed_vnet_subnet contains 'subnets/kv'
+| project name, allowed_vnet_subnet
+| order by name asc
+
+// Storage Account
+Resources
+| where type =~ 'microsoft.storage/storageaccounts'
+| where isnotempty(properties.networkAcls.virtualNetworkRules) and isnotnull(properties.networkAcls.virtualNetworkRules) 
+| where tostring(properties.networkAcls.virtualNetworkRules) != '[]'
+| mv-expand rules = properties.networkAcls.virtualNetworkRules
+| extend allowed_vnet_subnet = substring(tostring(rules.id), indexof(tostring(rules.id), '/virtual'))
+| where allowed_vnet_subnet contains '/subnets/sa'
+| project name, allowed_vnet_subnet
+| order by name asc
+
+// Redis Cache
+Resources
+| where type =~ 'microsoft.cache/redis'
+| where isnotempty(properties.networkAcls.virtualNetworkRules) and isnotnull(properties.networkAcls.virtualNetworkRules) 
+| where tostring(properties.networkAcls.virtualNetworkRules) != '[]'
+| mv-expand rules = properties.networkAcls.virtualNetworkRules
+| extend allowed_vnet_subnet = substring(tostring(rules.id), indexof(tostring(rules.id), '/virtual'))
+| where allowed_vnet_subnet contains '/subnets/redis'
+| project name, allowed_vnet_subnet
+| order by name asc

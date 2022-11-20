@@ -38,7 +38,7 @@ foreach ($Subscription in $Global:Subscriptions) {
     Write-Host ("[LOG] " + (Get-Date -Format "yyyy-MM-dd hh:mm")) -ForegroundColor White -BackgroundColor Black
 
     # Set current subscription
-	$AzContext = Set-AzContext -SubscriptionId $Subscription.Id
+	$AzContext = Set-AzContext -SubscriptionId $Subscription.Id -TenantId $Subscription.TenantId
     Write-Host ("`nProcessing " + $CurrentItem + " out of " + $Global:Subscriptions.Count + " Subscription: " + $Subscription.name) -ForegroundColor Yellow
     $CurrentItem++
 
@@ -73,7 +73,7 @@ foreach ($Subscription in $Global:Subscriptions) {
 #Region Virtual Machine
 foreach ($Subscription in $Global:Subscriptions) {
     # Set current subscription for Az Module
-	$AzContext = Set-AzContext -SubscriptionId $Subscription.Id
+	$AzContext = Set-AzContext -SubscriptionId $Subscription.Id -TenantId $Subscription.TenantId
 
     # Get all Azure VM
     $vms = Get-AzVM | ? {$_.ResourceGroupName -notlike "databricks-rg*"}
@@ -127,7 +127,7 @@ foreach ($Subscription in $Global:Subscriptions) {
 #Region SQL Server in Azure VM
 foreach ($Subscription in $Global:Subscriptions) {
     # Set current subscription for Az Module
-	$AzContext = Set-AzContext -SubscriptionId $Subscription.Id
+	$AzContext = Set-AzContext -SubscriptionId $Subscription.Id -TenantId $Subscription.TenantId
 
     # Get SQL Server in Azure VM
     $vms = Get-AzResource | ? {$_.ResourceGroupName -notlike "databricks-rg*" -and $_.resourcetype -eq "Microsoft.SqlVirtualMachine/SqlVirtualMachines"} 
@@ -193,7 +193,7 @@ foreach ($Subscription in $Global:Subscriptions) {
 #Region Blob Storage
 foreach ($Subscription in $Global:Subscriptions) {
     # Set current subscription for Az Module
-	$AzContext = Set-AzContext -SubscriptionId $Subscription.Id
+	$AzContext = Set-AzContext -SubscriptionId $Subscription.Id -TenantId $Subscription.TenantId
 
     # Get all Blob Storage
     $StorageAccounts = Get-AzStorageAccount

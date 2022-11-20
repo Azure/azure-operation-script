@@ -18,7 +18,7 @@ foreach ($Subscription in $Global:Subscriptions) {
     Write-Host ("[LOG] " + (Get-Date -Format "yyyy-MM-dd hh:mm")) -ForegroundColor White -BackgroundColor Black
 	
     # Set current subscription
-    $AzContext = Set-AzContext -SubscriptionId $Subscription.Id
+    $AzContext = Set-AzContext -SubscriptionId $Subscription.Id -TenantId $Subscription.TenantId
     az account set --subscription $Subscription.Id
     Write-Host ("`nProcessing " + $CurrentItem + " out of " + $Global:Subscriptions.Count + " Subscription: " + $Subscription.name) -ForegroundColor Yellow
 

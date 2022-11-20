@@ -1,0 +1,2 @@
+﻿VNet1Subscription,VNet1ResourceGroup,VNet1Name,VNet2Subscription,VNet2ResourceGroup,VNet2Name,AllowGatewayTransit,UseRemoteGateways
+Sub1,RG Name,VNet1,Sub2,RG Name,VNet2,VNet1,VNet2

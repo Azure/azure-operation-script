@@ -1,0 +1,13 @@
+// Virtual Network
+// Azure-provided DNS result in []
+resources
+| where subscriptionId == ""
+| where type == "microsoft.network/virtualnetworks"
+| project ['id'],name,location,resourceGroup,subscriptionId, dns = properties.dhcpOptions.dnsServers
+
+// Network Interface
+// Inherit from virtual network result in []
+resources
+| where subscriptionId == ""
+| where type == "microsoft.network/networkinterfaces"
+| project ['id'],name,location,resourceGroup,subscriptionId, NicDns = properties.dnsSettings.dnsServers

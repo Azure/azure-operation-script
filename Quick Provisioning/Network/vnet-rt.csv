@@ -1,0 +1,3 @@
+﻿RTSubscription,RTResourceGroup,RTName,VNetSubscription,VNetResourceGroup,VNetName,VNetSubnetName
+RouteTable SubscriptionName,RouteTable RG Name,RouteTable Name,vNet SubscriptionName,vNet RG Name,vNet Name,GatewaySubnet
+RouteTable SubscriptionName,RouteTable RG Name,RouteTable Name,vNet SubscriptionName,vNet RG Name,vNet Name,apimgmt_vnet
