@@ -9,6 +9,7 @@ $pipForcedTunnelingName = "pip-afwmgmt-core-prd-sea-001"
 $HubVNetRG = "Network"
 $HubVNetName = "vnet-hub-prd-sea-001"
 $AllowSourceAddressRange = "10.0.0.0/16"
+$AllowDestinationAddressRange = "8.8.8.8/32"
 $logIsExist = $true
 $logRG = "Log"
 $logName = "log-analytics-core-prd-sea-001"
@@ -47,7 +48,7 @@ Start-Sleep -Seconds 10
 Write-Host ("`n[LOG] " + (Get-Date -Format "yyyy-MM-dd hh:mm")) -ForegroundColor White -BackgroundColor Black
 Write-Host "`nProvision Network Rule of Azure Firewall Policy ..." -ForegroundColor Cyan
 $rcgroup = New-AzFirewallPolicyRuleCollectionGroup -Name "RootCollectionGroup" -Priority 200 -FirewallPolicyObject $fwpol
-$netrule = New-AzFirewallPolicyNetworkRule -name Allow-Any-Any -Protocol ("Any", "TCP", "UDP", "ICMP") -SourceAddress $AllowSourceAddressRange -DestinationAddress "*" -DestinationPort "*"
+$netrule = New-AzFirewallPolicyNetworkRule -Name "Default-DNS-Rule" -Protocol ("TCP", "UDP") -SourceAddress $AllowSourceAddressRange -DestinationAddress $AllowDestinationAddressRange -DestinationPort 53
 $netcol = New-AzFirewallPolicyFilterRuleCollection -Name "SharedPlatformRuleCollection" -Priority 300 -Rule $netrule -ActionType "Allow"
 Set-AzFirewallPolicyRuleCollectionGroup -Name $rcgroup.Name -Priority 200 -RuleCollection $netcol -FirewallPolicyObject $fwpol 
 #EndRegion Azure Firewall Network Rule
