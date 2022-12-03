@@ -1,0 +1,20 @@
+let gridRowSelected = dynamic({"Id": "*"});
+let resourceName = split(gridRowSelected.Id, "/")[0];
+let operationName = split(gridRowSelected.Id, "/")[1];
+AzureDiagnostics 
+| where TimeGenerated > ago(1d)
+// Ignore Authentication operations with a 401. This is normal when using Key Vault SDK, first an unauthenticated request is done then the response is used for authentication.
+| where Category == "AuditEvent" and not (OperationName == "Authentication" and httpStatusCode_d == 401)
+| where OperationName in ('CertificateList', 'KeyGet', 'KeyList', 'KeyListVersions', 'SecretGet', 'SecretList', 'SecretListVersions', 'VaultGet') or '*' in ('CertificateList', 'KeyGet', 'KeyList', 'KeyListVersions', 'SecretGet', 'SecretList', 'SecretListVersions', 'VaultGet')
+| where resourceName == "*" or Resource == resourceName
+| where operationName == "" or OperationName == operationName
+// Create ResultStatus with all the 'success' results bucked as 'Success'
+// Certain operations like StorageAccountAutoSyncKey have no ResultSignature, for now set to 'Success' as well
+| extend ResultStatus = case (ResultSignature == "", "Success",
+    ResultSignature == "OK", "Success",
+    ResultSignature == "Accepted", "Success",
+    ResultSignature)
+| where ResultStatus == 'All' or 'All' == 'All'
+| where ResourceId contains "KV-CORE-PRD-EAS-001"
+| project TimeGenerated, Category, SubscriptionId, ResourceGroup, Resource, OperationName, Data=id_s, ResultStatus, Name=identity_claim_http_schemas_xmlsoap_org_ws_2005_05_identity_claims_name_s
+, Name2=identity_claim_unique_name_s, UPN=identity_claim_http_schemas_xmlsoap_org_ws_2005_05_identity_claims_upn_s, UPN2=identity_claim_upn_s, CallerIPAddress
