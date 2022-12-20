@@ -2,7 +2,6 @@
 $Global:DiagnosticSetting = @()
 $DiagnosticSettingSummary = @()
 [int]$CurrentItem = 1
-[int]$ThrottleLimit = 30
 $ErrorActionPreference = "Continue"
 
 # Function to align the Display Name
@@ -159,77 +158,70 @@ foreach ($Subscription in $Global:Subscriptions) {
     $TempList = $TempList | sort ResourceType, ResourceGroupName, ResourceName
     Write-Host ("`nNumber of Resources that support Diagnostic Logging: " + $TempList.Count)
     
+    # Define Throttle Limit
+    # Declaration issue if define at the top of the script
+    $ThrottleLimit = 30
+
+    # Modify Throttle Limit
+    if ($TempList.Count -lt $ThrottleLimit) {
+        Write-Host ("`n[INFO] Less than Default Throttle Limit")
+        $ThrottleLimit = $TempList.Count
+    }
+    
     # Rename Location
     foreach ($item in $TempList) {
         $item.Location = Rename-Location -Location $item.Location
     }
 
-    # Get Diagnostic Settings 
-    if ($TempList.Count -lt $ThrottleLimit) {
-        $ThrottleLimit = $TempList.Count
-    }
-    
     #Region Parallel Process
-    Write-Host "`nParallel Process Start"
+    if ($ThrottleLimit -gt 0) {
+        Write-Host "`nParallel Process Start"
+        Write-Host ("`nThrottle Limit: " + $ThrottleLimit)
 
-    0..($ThrottleLimit - 1) | foreach -Parallel {
-        # Script Variable
-        $CurrentSubscriptionName = ($using:Subscription).Name
-        $CurrentSubscriptionId  = ($using:Subscription).Id
-        [int]$CurrentItem = $_
-        $LocalTempList = $using:TempList
-        $CurrentDiagnosticSetting = @()
-        $CurrentExportPath = ($using:Global:ExcelOutputFolder + "DiagnosticSettingTempFile" + $_ + ".csv")
+        0..($ThrottleLimit - 1) | foreach -Parallel {
+            # Script Variable
+            $CurrentSubscriptionName = ($using:Subscription).Name
+            $CurrentSubscriptionId  = ($using:Subscription).Id
+            [int]$CurrentThread = $_
+            $LocalTempList = $using:TempList
+            $CurrentDiagnosticSetting = @()
+            #$CurrentExportPath = ($using:Global:ExcelOutputFolder + "DiagnosticSettingTempFile" + $_ + ".csv")
+            $CurrentExportPath = ($using:Global:ExcelOutputFolder + "DiagnosticSettingTempFile" + $CurrentThread.ToString() + ".csv")
 
-        # Wait
-        $num = Get-Random -Minimum 1 -Maximum 10
-        Start-Sleep -Seconds $num
+            # Wait
+            $num = Get-Random -Minimum 1 -Maximum 10
+            Start-Sleep -Seconds $num
 
-        # Initialize
-        $AzContext = Set-AzContext -SubscriptionId $CurrentSubscriptionId 
-        $error.Clear()
-    
-        # Split Single Array into Multiple Smaller Array  
-        $PartitionSize = [Math]::Floor($LocalTempList.Count / $using:ThrottleLimit)
-        if ($CurrentItem -eq 0) {
-            $StartIndex = 0
-            $EndIndex = ($PartitionSize - 1)
-        } elseif ($CurrentItem -eq ($using:ThrottleLimit - 1)) {
-            $StartIndex = $CurrentItem * $PartitionSize
-            $EndIndex = ($LocalTempList.Count - 1)
-        } else {
-            $StartIndex = $CurrentItem * $PartitionSize
-            $EndIndex = ($StartIndex + $PartitionSize - 1)
-        }
-    
-        # Start Threading
-        Write-Host ("Thread $_ : Index From " + $StartIndex + " to " + $EndIndex) -ForegroundColor DarkGreen
-        foreach ($item in $LocalTempList[$StartIndex..$EndIndex]) {
-            Start-Sleep -Milliseconds 300
-            #Write-Host ("Resource: " + $item.Name)
-    
-            $CurrentErrorCount = $error.Count 
-            $TempDiagnosticSettings = Get-AzDiagnosticSetting -ResourceId $item.Id
-            if ($CurrentErrorCount -ne $error.Count) {
-                Write-Host ("`nProblematic Resource: " + $item.Id + "`n`nProblematic Resource Type: " + $item.ResourceType) -ForegroundColor Yellow
-            }
-    
-            if ($TempDiagnosticSettings -eq $null) {
-                $obj = New-Object -TypeName PSobject
-                Add-Member -InputObject $obj -MemberType NoteProperty -Name "SubscriptionName" -Value $CurrentSubscriptionName
-                Add-Member -InputObject $obj -MemberType NoteProperty -Name "SubscriptionId" -Value $CurrentSubscriptionId
-                Add-Member -InputObject $obj -MemberType NoteProperty -Name "ResourceGroup" -Value $item.ResourceGroupName
-                Add-Member -InputObject $obj -MemberType NoteProperty -Name "ResourceName" -Value $item.ResourceName
-                Add-Member -InputObject $obj -MemberType NoteProperty -Name "ResourceType" -Value $item.ResourceType
-                Add-Member -InputObject $obj -MemberType NoteProperty -Name "Location" -Value $item.Location
-                Add-Member -InputObject $obj -MemberType NoteProperty -Name "EnabledDiagnostic" -Value "N"
-                Add-Member -InputObject $obj -MemberType NoteProperty -Name "WorkspaceId" -Value "N/A"
-                Add-Member -InputObject $obj -MemberType NoteProperty -Name "StorageAccountId" -Value "N/A"
-                Add-Member -InputObject $obj -MemberType NoteProperty -Name "ServiceBusRuleId" -Value "N/A"
-                Add-Member -InputObject $obj -MemberType NoteProperty -Name "EventHubAuthorizationRuleId" -Value "N/A"
-                $CurrentDiagnosticSetting += $obj
+            # Initialize
+            $AzContext = Set-AzContext -SubscriptionId $CurrentSubscriptionId 
+            $error.Clear()
+        
+            # Split Single Array into Multiple Smaller Array  
+            $PartitionSize = [Math]::Floor($LocalTempList.Count / $using:ThrottleLimit)
+            if ($CurrentThread -eq 0) {
+                $StartIndex = 0
+                $EndIndex = ($PartitionSize - 1)
+            } elseif ($CurrentThread -eq ($using:ThrottleLimit - 1)) {
+                $StartIndex = $CurrentThread * $PartitionSize
+                $EndIndex = ($LocalTempList.Count - 1)
             } else {
-                foreach ($TempDiagnosticSetting in $TempDiagnosticSettings) {
+                $StartIndex = $CurrentThread * $PartitionSize
+                $EndIndex = ($StartIndex + $PartitionSize - 1)
+            }
+        
+            # Start Threading
+            Write-Host ("Thread $_ : Index From " + $StartIndex + " to " + $EndIndex) -ForegroundColor DarkGreen
+            foreach ($item in $LocalTempList[$StartIndex..$EndIndex]) {
+                Start-Sleep -Milliseconds 300
+                #Write-Host ("Resource: " + $item.Name)
+        
+                $CurrentErrorCount = $error.Count 
+                $TempDiagnosticSettings = Get-AzDiagnosticSetting -ResourceId $item.Id
+                if ($CurrentErrorCount -ne $error.Count) {
+                    Write-Host ("`nProblematic Resource: " + $item.Id + "`n`nProblematic Resource Type: " + $item.ResourceType) -ForegroundColor Yellow
+                }
+        
+                if ($TempDiagnosticSettings -eq $null) {
                     $obj = New-Object -TypeName PSobject
                     Add-Member -InputObject $obj -MemberType NoteProperty -Name "SubscriptionName" -Value $CurrentSubscriptionName
                     Add-Member -InputObject $obj -MemberType NoteProperty -Name "SubscriptionId" -Value $CurrentSubscriptionId
@@ -237,30 +229,50 @@ foreach ($Subscription in $Global:Subscriptions) {
                     Add-Member -InputObject $obj -MemberType NoteProperty -Name "ResourceName" -Value $item.ResourceName
                     Add-Member -InputObject $obj -MemberType NoteProperty -Name "ResourceType" -Value $item.ResourceType
                     Add-Member -InputObject $obj -MemberType NoteProperty -Name "Location" -Value $item.Location
-                    Add-Member -InputObject $obj -MemberType NoteProperty -Name "EnabledDiagnostic" -Value "Y"
-                    Add-Member -InputObject $obj -MemberType NoteProperty -Name "WorkspaceId" -Value $TempDiagnosticSetting.WorkspaceId
-                    Add-Member -InputObject $obj -MemberType NoteProperty -Name "StorageAccountId" -Value $TempDiagnosticSetting.StorageAccountId
-                    Add-Member -InputObject $obj -MemberType NoteProperty -Name "ServiceBusRuleId" -Value $TempDiagnosticSetting.ServiceBusRuleId
-                    Add-Member -InputObject $obj -MemberType NoteProperty -Name "EventHubAuthorizationRuleId" -Value $TempDiagnosticSetting.EventHubAuthorizationRuleId
-                    
-                    # Save to Array
+                    Add-Member -InputObject $obj -MemberType NoteProperty -Name "EnabledDiagnostic" -Value "N"
+                    Add-Member -InputObject $obj -MemberType NoteProperty -Name "WorkspaceId" -Value "N/A"
+                    Add-Member -InputObject $obj -MemberType NoteProperty -Name "StorageAccountId" -Value "N/A"
+                    Add-Member -InputObject $obj -MemberType NoteProperty -Name "ServiceBusRuleId" -Value "N/A"
+                    Add-Member -InputObject $obj -MemberType NoteProperty -Name "EventHubAuthorizationRuleId" -Value "N/A"
                     $CurrentDiagnosticSetting += $obj
+                } else {
+                    foreach ($TempDiagnosticSetting in $TempDiagnosticSettings) {
+                        $obj = New-Object -TypeName PSobject
+                        Add-Member -InputObject $obj -MemberType NoteProperty -Name "SubscriptionName" -Value $CurrentSubscriptionName
+                        Add-Member -InputObject $obj -MemberType NoteProperty -Name "SubscriptionId" -Value $CurrentSubscriptionId
+                        Add-Member -InputObject $obj -MemberType NoteProperty -Name "ResourceGroup" -Value $item.ResourceGroupName
+                        Add-Member -InputObject $obj -MemberType NoteProperty -Name "ResourceName" -Value $item.ResourceName
+                        Add-Member -InputObject $obj -MemberType NoteProperty -Name "ResourceType" -Value $item.ResourceType
+                        Add-Member -InputObject $obj -MemberType NoteProperty -Name "Location" -Value $item.Location
+                        Add-Member -InputObject $obj -MemberType NoteProperty -Name "EnabledDiagnostic" -Value "Y"
+                        Add-Member -InputObject $obj -MemberType NoteProperty -Name "WorkspaceId" -Value $TempDiagnosticSetting.WorkspaceId
+                        Add-Member -InputObject $obj -MemberType NoteProperty -Name "StorageAccountId" -Value $TempDiagnosticSetting.StorageAccountId
+                        Add-Member -InputObject $obj -MemberType NoteProperty -Name "ServiceBusRuleId" -Value $TempDiagnosticSetting.ServiceBusRuleId
+                        Add-Member -InputObject $obj -MemberType NoteProperty -Name "EventHubAuthorizationRuleId" -Value $TempDiagnosticSetting.EventHubAuthorizationRuleId
+                        
+                        # Save to Array
+                        $CurrentDiagnosticSetting += $obj
+                    }
                 }
             }
-        }
-    
-        # Export to Temp Path
-        $CurrentDiagnosticSetting | Export-Csv -Path $CurrentExportPath -NoTypeInformation -Force -Confirm:$false
-    } -ThrottleLimit $ThrottleLimit
+        
+            # Export to Temp Path
+            $CurrentDiagnosticSetting | Export-Csv -Path $CurrentExportPath -NoTypeInformation -Force -Confirm:$false
+        } -ThrottleLimit $ThrottleLimit
 
-    # Merge Temp File into Result Array
-    0..($ThrottleLimit - 1) | foreach {
-        $CurrentExportPath = ($Global:ExcelOutputFolder + "DiagnosticSettingTempFile" + $_ + ".csv")
-        $Global:DiagnosticSetting += Import-Csv -Path $CurrentExportPath
-        Start-Sleep -Milliseconds 500
-        Remove-Item -Path $CurrentExportPath -Force -Confirm:$false
+        # Merge Temp File into Result Array
+        0..($ThrottleLimit - 1) | foreach {
+            [int]$CurrentThread = $_
+            #$CurrentExportPath = ($Global:ExcelOutputFolder + "DiagnosticSettingTempFile" + $_ + ".csv")
+            $CurrentExportPath = ($Global:ExcelOutputFolder + "DiagnosticSettingTempFile" + $CurrentThread.ToString() + ".csv")
+            $Global:DiagnosticSetting += Import-Csv -Path $CurrentExportPath
+            Start-Sleep -Milliseconds 500
+            Remove-Item -Path $CurrentExportPath -Force -Confirm:$false
+        }
+        #EndRegion Parallel Process
+    } else {
+        Write-Host "`nCurrent Subscription has no Resources that support Diagnostic Logging"
     }
-    #EndRegion Parallel Process
 }
 
 #Region Export
