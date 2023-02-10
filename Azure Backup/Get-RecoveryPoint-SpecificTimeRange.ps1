@@ -10,7 +10,7 @@ $RecoveryServicesVaults = Get-AzRecoveryServicesVault
 # Get Backup Item of Recovery Services Vault from current subscription
 foreach ($RecoveryServicesVault in $RecoveryServicesVaults) {
     Write-Host ("`nRecovery Services Vault: " + $RecoveryServicesVault.Name) -ForegroundColor Yellow
-    Write-Host "Retrieving Azure VM Backup Item..."
+    Write-Host "Retrieving Azure VM Backup Item"
 
     # Type: Azure VM
     $Containers = Get-AzRecoveryServicesBackupContainer -ContainerType AzureVM -Status Registered -VaultId $RecoveryServicesVault.ID
