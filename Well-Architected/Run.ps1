@@ -17,13 +17,13 @@ $error.Clear()
 $GetAzureBackup = $false
 $GetAzureSql = $false
 $GetAzureSqlMI = $false
-$GetDiagnosticSetting = $false
+$GetDiagnosticSetting = $true
 $GetRedisCache = $false
 $GetAZoneEnabledService = $false
 $GetClassicResource = $false
 $GetUnmanagedDisk = $false
 $GetStorageAccount = $false
-$GetAppService = $true
+$GetAppService = $false
 
 function Update-RunScriptList {
     param(
@@ -192,12 +192,11 @@ foreach ($RunScript in $Global:RunScriptList) {
 }
 
 # End
-Write-Host ("`n")
-Write-Host ("[LOG] " + (Get-Date -Format "yyyy-MM-dd hh:mm")) -ForegroundColor White -BackgroundColor Black
-Write-Host "`n`nWell-Architected Assessment have been completed"
+Write-Host ("`n[LOG] " + (Get-Date -Format "yyyy-MM-dd hh:mm")) -ForegroundColor White -BackgroundColor Black
+Write-Host "`nWell-Architected Assessment have been completed"
 $Global:EndTime = Get-Date
 $Duration = $Global:EndTime - $Global:StartTime
 Write-Host ("`nTotal Process Time: " + $Duration.Hours + " Hours " + $Duration.Minutes + " Minutes " + $Duration.Seconds + " Seconds") -ForegroundColor Blue -BackgroundColor Black
 Start-Sleep -Seconds 1
 Write-Host ("`nPlease refer to the Assessment Result locate at " + $Global:ExcelFullPath)
-Write-Host "`n`n"
+Write-Host "`n"
