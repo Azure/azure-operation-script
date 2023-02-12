@@ -22,7 +22,7 @@ Any use of third-party trademarks or logos are subject to those third-party's po
 
 # Quick Start
 
-1. Review **README.md** under **Connection** folder
+1. Review [Connection](https://github.com/Azure/azure-operation-script/tree/dev/Connection)
 1. Fork a repository or download the necessary script to local computer
 1. Check out the master branch
 1. Install the PowerShell Module and Azure CLI (Optional)
@@ -33,10 +33,14 @@ Any use of third-party trademarks or logos are subject to those third-party's po
 
 ### Prerequisites
 
+> The version stated below is the baseline only, recommend to install newer version
+
+> Azure Cloud Shell require to install PowerShell Module **ImportExcel** and **PnP.PowerShell** only
+
 | Item | Name | Version | Installation | 
 | - | - | - | - | 
-| 1 | PowerShell | 5.1 <br /> 7.1.5 | [docs.microsoft.com](https://docs.microsoft.com/en-us/powershell/scripting/install/installing-powershell-on-windows)  | 
-| 2 | Az Module | 8.2.0 | [PowerShell Gallery](https://www.powershellgallery.com/packages/Az) |
+| 1 | PowerShell | 5.1 <br /> 7.2.2 | [docs.microsoft.com](https://docs.microsoft.com/en-us/powershell/scripting/install/installing-powershell-on-windows)  | 
+| 2 | Az Module | 9.3.0 | [PowerShell Gallery](https://www.powershellgallery.com/packages/Az) |
 | 3 | Az.DataProtection Module | 0.3.0 | [PowerShell Gallery](https://www.powershellgallery.com/packages/Az.DataProtection) |
 | 4 | Azure Active Directory V2 Module (AzureAD) | 2.0.2.140 | [PowerShell Gallery](https://www.powershellgallery.com/packages/AzureAD) |
 | 5 | Azure CLI | 2.35.0 | [docs.microsoft.com](https://docs.microsoft.com/en-us/cli/azure/install-azure-cli) |
@@ -50,7 +54,7 @@ Any use of third-party trademarks or logos are subject to those third-party's po
 Get-InstalledModule
 
 # Run as Administrator to install for Powershell 7
-Install-Module -Name Az -RequiredVersion 8.2.0 -Confirm:$false -Force
+Install-Module -Name Az -RequiredVersion 9.3.0 -Confirm:$false -Force
 Install-Module -Name Az.DataProtection -RequiredVersion 0.3.0 -Confirm:$false -Force
 Install-Module -Name ImportExcel -RequiredVersion 7.4.2 -Confirm:$false -Force
 Install-Module -Name PnP.PowerShell -RequiredVersion 1.11.0 -Confirm:$false -Force
@@ -60,13 +64,11 @@ Install-Module -Name AzureAD -RequiredVersion 2.0.2.140 -Confirm:$false -Force
 Install-Module -Name ImportExcel -RequiredVersion 7.4.2 -Confirm:$false -Force
 ```
 
-> Azure Cloud Shell require to install PowerShell Module **ImportExcel** and **PnP.PowerShell** only
-
 ### Script Parameter
 
 - Variable under **# Global Parameter** is expected to modify
 - Variable under **# Script Variable** is expected NOT to modify
-- Comment **# Login** section if using **Connect-To-Cloud.ps1** to login Azure
+- Comment **Login** section in the script if using [Connect-To-Cloud.ps1](https://github.com/Azure/azure-operation-script/blob/dev/Connection/Connect-To-Cloud.ps1) to login Azure
 
 ### Subscription Management
 
@@ -74,7 +76,7 @@ Most of the scripts support to retrieve information or modify configuration from
 
 ```PowerShell
 foreach ($Subscription in $Global:Subscriptions) {
-  # Function ...
+  # ...
 }
 ```
 
@@ -228,14 +230,13 @@ Get-AzProviderFeature -FeatureName "ZRSImagesAndSnapshots" -ProviderNamespace "M
 
 ### 3. Differences between Windows PowerShell 5.1 and PowerShell 7.x
 
-- [Official Detail Guide](https://docs.microsoft.com/en-us/powershell/scripting/whats-new/differences-from-windows-powershell)
-
 #### Multi-threading
 
 > All scripts with Multi-threading Capability (Mainly apply to Well-Architected scripts) require PowerShell v7.* by using **Pipeline parallelization with ForEach-Object -Parallel**
 
 **Reference**
 
+- [Official Detail Guide](https://docs.microsoft.com/en-us/powershell/scripting/whats-new/differences-from-windows-powershell)
 - [What's New in PowerShell 7.0](https://docs.microsoft.com/en-us/powershell/scripting/whats-new/what-s-new-in-powershell-70?view=powershell-7.2&viewFallbackFrom=powershell-7.1)
 - [RunspaceFactory.CreateRunspacePool Method](https://docs.microsoft.com/en-us/dotnet/api/system.management.automation.runspaces.runspacefactory.createrunspacepool?view=powershellsdk-7.0.0)
 - [Beginning Use of PowerShell Runspaces: Part 1](https://devblogs.microsoft.com/scripting/beginning-use-of-powershell-runspaces-part-1/)
@@ -247,7 +248,7 @@ Get-AzProviderFeature -FeatureName "ZRSImagesAndSnapshots" -ProviderNamespace "M
 
 ```PowerShell
 # Example
-Get-CimInstance -ClassName MyClass
+Get-CimInstance -ClassName <ClassName>
 ```
 
 **Reference**
