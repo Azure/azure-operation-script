@@ -9,7 +9,8 @@ $adminCredential = New-Object -TypeName System.Management.Automation.PSCredentia
 [string]$PlainTextPassword = $adminCredential.GetNetworkCredential().Password
 
 # Main
-Write-Host "`nConnecting to Azure using Az PowerShell Module" -ForegroundColor Gray
+Write-Host "`nConnecting to Azure with both Az PowerShell Module and Azure CLI" -ForegroundColor Gray
+$error.Clear()
 
 if ($SpecificTenant -eq "Y") {
     Connect-AzAccount -Credential $adminCredential -Tenant $TenantId | Out-Null
@@ -19,4 +20,9 @@ if ($SpecificTenant -eq "Y") {
     az login --username $username --password $PlainTextPassword
 }
 
-Write-Host "`nConnected`n" -ForegroundColor Gray
+# End
+if ($error.Count -eq 0) {
+    Write-Host "`nConnected`n" -ForegroundColor Gray
+} else {
+    Write-Host "`nLogin issue, please review the error message`n" -ForegroundColor Yellow
+}

@@ -1,6 +1,6 @@
 # Highlight
 
-- If executing .ps1 by **right-click the script file name and then select 'Run with PowerShell'"**, **Connect-AzAccount** is triggered during runtime with Local Scope. In other words, each script is an individual connection section that unable to share with other script
+- If executing .ps1 by **right-click the script file name and then select "Run with PowerShell"**, **Connect-AzAccount** will run in Local Scope. In other words, each script is an individual connection section that unable to share with other script
 - To reuse the connection section for multiple scripts, starting from opening a **Windows PowerShell** from start menu, explicitly login once, then either run the script or copy the content and paste into the **Windows PowerShell**
 
 # Prerequisites
