@@ -24,7 +24,6 @@ Any use of third-party trademarks or logos are subject to those third-party's po
 
 1. Review [Connection](https://github.com/Azure/azure-operation-script/tree/dev/Connection)
 1. Fork a repository or download the necessary script to local computer
-1. Check out the master branch
 1. Install the PowerShell Module and Azure CLI (Optional)
 1. Modify the script (Optional)
 1. Execute the script
