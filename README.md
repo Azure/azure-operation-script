@@ -78,10 +78,18 @@ foreach ($Subscription in $Global:Subscriptions) {
 }
 ```
 
-Using below command to determine the list of subscriptions which is assigned to variable **$Global:Subscriptions**
+Below are the sample command to gather subscription which will be assigned to variable **$Global:Subscriptions**
 
 ```PowerShell
-# Optional
+# Exclude disabled or legacy subscription
+$TenantId = "Tenant Id"
+
+# Retrieve the list of subscriptions that be examined for the scripts
+$Global:Subscriptions = Get-AzSubscription -TenantId $TenantId | ? {$_.State -eq "Enabled" -and $_.Name -ne "Access to Azure Active Directory"}
+```
+
+```PowerShell
+# Get specific subscription
 $TenantId = "Tenant Id"
 $SubscriptionName = "Subscription Name"
 
