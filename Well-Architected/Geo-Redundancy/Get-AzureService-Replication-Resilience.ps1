@@ -100,29 +100,32 @@ foreach ($Subscription in $Global:Subscriptions) {
     $CurrentItem++
 
     # Recovery Services Vault
+    Write-Host ("`nRecovery Services Vault") -ForegroundColor Blue
     $RecoveryServicesVaults = Get-AzRecoveryServicesVault
 
     foreach ($RecoveryServicesVault in $RecoveryServicesVaults) {
-        Write-Host ("`nRecovery Services Vault") -ForegroundColor Blue
         Write-Host $($RecoveryServicesVault.Name)
         $BackupProperty = Get-AzRecoveryServicesBackupProperty -Vault $RecoveryServicesVault
         $RedundancyConfig = $BackupProperty.BackupStorageRedundancy
         $CrossRegionRestore = $BackupProperty.CrossRegionRestore
 
         # Add Cross-Region Restore setting to Remark
-        if ($CrossRegionRestore -and $RedundancyConfig -like "*Geo*") {
-            $Remark = "Cross-Region Restore is enabled"
-        } else {
-            $Remark = "Cross-Region Restore is disabled"
-        }
+        if ($RedundancyConfig -like "*Geo*") {
+            if ($CrossRegionRestore) {
+                $RedundancyConfig += " with Cross-Region Restore enabled"
+            } else {
+                $RedundancyConfig += " with Cross-Region Restore disabled"
+            }
+        } 
  
-        Add-Record -SubscriptionName $Subscription.Name -SubscriptionId $Subscription.Id -ResourceGroup $RecoveryServicesVault.ResourceGroupName -Location $RecoveryServicesVault.Location -InstanceName $RecoveryServicesVault.Name -InstanceType "Recovery Services Vault" -CurrentRedundancyType $RedundancyConfig -Remark $Remark
+        Add-Record -SubscriptionName $Subscription.Name -SubscriptionId $Subscription.Id -ResourceGroup $RecoveryServicesVault.ResourceGroupName -Location $RecoveryServicesVault.Location -InstanceName $RecoveryServicesVault.Name -InstanceType "Recovery Services Vault" -CurrentRedundancyType $RedundancyConfig -Remark ""
     }
 
     # Backup Vault
-    $BackupVaults = Get-AzResource | ? {$_.ResourceType -eq "Microsoft.DataProtection/BackupVaults"} 
+    Write-Host ("`nBackup Vault") -ForegroundColor Blue
+    $BackupVaults = Get-AzResource | ? {$_.ResourceType -eq "Microsoft.DataProtection/BackupVaults"}
+
     foreach ($BackupVault in $BackupVaults) {
-        Write-Host ("`nBackup Vault") -ForegroundColor Blue
         Write-Host $($BackupVault.Name)
         $BackupVaultInstance = Get-AzDataProtectionBackupVault -ResourceGroupName $BackupVault.ResourceGroupName -VaultName $BackupVault.Name
         $RedundancyConfig = $BackupVaultInstance.StorageSetting.Type
@@ -130,33 +133,83 @@ foreach ($Subscription in $Global:Subscriptions) {
         Add-Record -SubscriptionName $Subscription.Name -SubscriptionId $Subscription.Id -ResourceGroup $BackupVault.ResourceGroupName -Location $BackupVaultInstance.Location -InstanceName $BackupVaultInstance.Name -InstanceType "Backup Vault" -CurrentRedundancyType $RedundancyConfig -Remark ""
     }
 
-
     # Storage Account
+    Write-Host ("`nStorage Account") -ForegroundColor Blue
+    $StorageAccounts = Get-AzStorageAccount
 
-
+    foreach ($StorageAccount in $StorageAccounts) {
+        Write-Host $($StorageAccount.StorageAccountName)
+        $RedundancyConfig = $StorageAccount.Sku.Name.Substring($StorageAccount.Sku.Name.IndexOf("_") + 1)
+        Add-Record -SubscriptionName $Subscription.Name -SubscriptionId $Subscription.Id -ResourceGroup $StorageAccount.ResourceGroupName -Location $StorageAccount.Location -InstanceName $StorageAccount.StorageAccountName -InstanceType "Storage Account" -CurrentRedundancyType $RedundancyConfig -Remark ""
+    }
+    
     # Api Management
+    Write-Host ("`nApi Management") -ForegroundColor Blue
+    $apims = Get-AzApiManagement
+
+    foreach ($apim in $apims) {
+        Write-Host $($apim.Name)
+        $InstanceTypeDetail = ""
+        $Location = $apim.Location # Primary Location
+        $sku = $apim.Sku.ToString()
+
+        if ($sku -in ("Premium", "Isolated")) {
+            # Additional Region
+            [array]$AdditionalRegions = $apim.AdditionalRegions
+
+            if ($AdditionalRegions.Count -gt 0) {
+                $RedundancyConfig = "Multi-Region"
+                foreach ($AdditionalRegion in $AdditionalRegions) {
+                    if ($InstanceTypeDetail -eq "") {
+                        $InstanceTypeDetail = "Additional Region: " + $AdditionalRegion.Location
+                    } else {
+                        $InstanceTypeDetail += ", " + $AdditionalRegion.Location
+                    }
+                }
+            } else {
+                $RedundancyConfig = "Disabled"
+                $InstanceTypeDetail = "No Multi-Region deployment Deployment"
+            }
+            Add-Record -SubscriptionName $Subscription.Name -SubscriptionId $Subscription.Id -ResourceGroup $apim.ResourceGroupName -Location $apim.Location -InstanceName $apim.Name -InstanceType "Api Management" -CurrentRedundancyType $RedundancyConfig -Remark $InstanceTypeDetail
+        } else {
+            $RedundancyConfig = "Multi-Region not supported by current Sku"
+            $InstanceTypeDetail = ""
+            Add-Record -SubscriptionName $Subscription.Name -SubscriptionId $Subscription.Id -ResourceGroup $apim.ResourceGroupName -Location $apim.Location -InstanceName $apim.Name -InstanceType "Api Management" -CurrentRedundancyType $RedundancyConfig -Remark $InstanceTypeDetail
+        }
+    }
+
+    # Azure SQL Database
+
+    # Azure SQL Managed Instance
 }
 
 #Region Export
-foreach ($item in ($Global:RedundancySetting | group InstanceType | select Name, Count)) {
-    if ($item.Count -eq 0) {
+# Prepare Summary
+foreach ($item in @("Recovery Services Vault", "Backup Vault", "Storage Account", "Api Management")) {
+    if ($Global:RedundancySetting.InstanceType -notcontains $item) {
         $obj = New-Object -TypeName PSobject
-        Add-Member -InputObject $obj -MemberType NoteProperty -Name "InstanceType" -Value $item.Name
+        Add-Member -InputObject $obj -MemberType NoteProperty -Name "InstanceType" -Value $item
         Add-Member -InputObject $obj -MemberType NoteProperty -Name "RedundancyType" -Value "N/A"
         Add-Member -InputObject $obj -MemberType NoteProperty -Name "Count" -Value "N/A"
         Add-Member -InputObject $obj -MemberType NoteProperty -Name "Remark" -Value "Resource Not Found"
         $Global:RedundancySettingSummary += $obj
-    } else {
-        $RedundancyType = $Global:RedundancySetting | ? {$_.InstanceType -eq $item.Name} | group CurrentRedundancyType | select Name, Count
+    }
+}
+
+foreach ($item in ($Global:RedundancySetting | group InstanceType | select Name, Count)) {
+    $RedundancyType = $Global:RedundancySetting | ? {$_.InstanceType -eq $item.Name} | group CurrentRedundancyType | select Name, Count
+
+    foreach ($type in $RedundancyType) {
         $obj = New-Object -TypeName PSobject
         Add-Member -InputObject $obj -MemberType NoteProperty -Name "InstanceType" -Value $item.Name
-        Add-Member -InputObject $obj -MemberType NoteProperty -Name "RedundancyType" -Value $RedundancyType.Name
-        Add-Member -InputObject $obj -MemberType NoteProperty -Name "Count" -Value $RedundancyType.Count
-        Add-Member -InputObject $obj -MemberType NoteProperty -Name "Remark" -Value ""
+        Add-Member -InputObject $obj -MemberType NoteProperty -Name "RedundancyType" -Value $type.Name
+        Add-Member -InputObject $obj -MemberType NoteProperty -Name "Count" -Value $type.Count
+        Add-Member -InputObject $obj -MemberType NoteProperty -Name "Remark" -Value ($Global:RedundancySetting | ? {$_.InstanceType -eq $item.Name -and $_.CurrentRedundancyType -eq $type.Name} | select -First 1 | select -ExpandProperty Remark)
         $Global:RedundancySettingSummary += $obj
     }
 }
 
 # Export to Excel File
 $Global:RedundancySettingSummary | Export-Excel -Path $Global:ExcelFullPath -WorksheetName "Summary" -TableName "Summary" -TableStyle Medium16 -AutoSize -Append
+$Global:RedundancySetting | Export-Excel -Path $Global:ExcelFullPath -WorksheetName "InstanceDetail" -TableName "InstanceDetail" -TableStyle Medium16 -AutoSize -Append
 #EndRegion Export
