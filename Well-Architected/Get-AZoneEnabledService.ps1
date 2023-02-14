@@ -428,11 +428,10 @@ foreach ($Subscription in $Global:Subscriptions) {
     #Region Api Management
     $apims = Get-AzApiManagement
     $InstanceType = "Api Management"
-    $InstanceTypeDetail = ""
 
     foreach ($apim in $apims) {
-        # Primary Location
-        [string]$Location = $apim.Location
+        $InstanceTypeDetail = ""
+        [string]$Location = $apim.Location  # Primary Location
 
         # SKU
         $sku = ($Location + " (" + $apim.Sku.ToString() + ": " + $apim.Capacity.ToString() + " Unit" + ")")
