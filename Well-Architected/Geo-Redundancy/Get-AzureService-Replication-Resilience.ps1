@@ -87,6 +87,7 @@ foreach ($item in $Global:NameReference) {
 #EndRegion Azure cross-region replication pairings
 
 # Main
+$Global:StartTime = Get-Date
 Write-Host ("`n" + "=" * 70)
 Write-Host "`nGet Configuration of Azure Service Replication and Resilience" -ForegroundColor Cyan
 
@@ -179,13 +180,90 @@ foreach ($Subscription in $Global:Subscriptions) {
     }
 
     # Azure SQL Database
+    Write-Host ("`nSQL Database") -ForegroundColor Blue
+    $SqlServers = Get-AzSqlServer
+	$Databases = $SqlServers | Get-AzSqlDatabase | ? {$_.DatabaseName -ne "Master" -and $_.SecondaryType -ne "Geo"}
+
+	foreach ($Database in $Databases) {
+        Write-Host $($Database.DatabaseName)
+        $SqlServer = $SqlServers | ? {$_.ResourceGroupName -eq $Database.ResourceGroupName -and $_.ServerName -eq $Database.ServerName}
+
+        # Pricing Tier
+        $Edition = $Database.Edition
+        if ($Edition -eq "Premium" -or $Edition -eq "Standard" -or $Edition -eq "Basic") {
+            $sku = $Database.CurrentServiceObjectiveName
+            $vCore = "N/A"
+        } else {
+            $sku = $Database.SkuName
+            $vCore = $Database.Capacity
+        }
+
+        # Elastic Pool
+        if ([string]::IsNullOrEmpty($Database.ElasticPoolName)) { 
+            $PoolName = "N/A" 
+        } else { 
+            $PoolName = $Database.ElasticPoolName 
+            $ElasticPool = Get-AzSqlElasticPool -ResourceGroupName $Database.ResourceGroupName -ServerName $Database.ServerName -ElasticPoolName $PoolName
+
+            if ($ElasticPool.Edition -eq "Premium" -or $ElasticPool.Edition -eq "Standard" -or $ElasticPool.Edition -eq "Basic") {
+                $sku += " " + $ElasticPool.Capacity + " DTU"
+            } else {
+                $sku += " " + $ElasticPool.SkuName
+                $vCore = $ElasticPool.Capacity
+            }
+        }
+
+        # Availability Zone 
+        $ZoneRedundant = $Database.ZoneRedundant
+        if ($ZoneRedundant) {
+            $ZoneRedundant = "Enabled"
+        } else {
+            $ZoneRedundant = "Disabled"
+        }
+
+        # Backup Storage Redundancy
+        $InstanceType = "SQL Database Backup Storage Redundancy"
+        $InstanceTypeDetail = ""
+        if ([string]::IsNullOrEmpty($Database.CurrentBackupStorageRedundancy)) {
+            $RedundancyConfig = "N/A"
+        } else {
+            $RedundancyConfig = $Database.CurrentBackupStorageRedundancy
+        }
+
+        Add-Record -SubscriptionName $Subscription.Name -SubscriptionId $Subscription.Id -ResourceGroup $Database.ResourceGroupName -Location $Database.Location -InstanceName $Database.DatabaseName -InstanceType $InstanceType -CurrentRedundancyType $RedundancyConfig -Remark $InstanceTypeDetail
+
+        # Failover Group
+        $InstanceType = "SQL Database Auto-Failover Group"
+        $InstanceTypeDetail = ""
+        $FailoverGroups = Get-AzSqlDatabaseFailoverGroup -ResourceGroupName $Database.ResourceGroupName -ServerName $Database.ServerName
+        $RedundancyConfig = "Disabled"
+        if (![string]::IsNullOrEmpty($FailoverGroups)) {
+            foreach ($FailoverGroup in $FailoverGroups) {
+                if ($FailoverGroup.DatabaseNames -contains $Database.DatabaseName) {
+                    $RedundancyConfig = "Enabled"
+                    $InstanceTypeDetail = "Failover Group Name: " + $FailoverGroup.FailoverGroupName.ToString()
+                }
+            }
+        }
+
+        Add-Record -SubscriptionName $Subscription.Name -SubscriptionId $Subscription.Id -ResourceGroup $Database.ResourceGroupName -Location $Database.Location -InstanceName $Database.DatabaseName -InstanceType $InstanceType -CurrentRedundancyType $RedundancyConfig -Remark $InstanceTypeDetail
+
+        # Dedicated SQL pool
+        $InstanceType = "Dedicated SQL pool Geo-Backup Policy"
+        $InstanceTypeDetail = ""
+        if ($Database.Edition -eq "DataWarehouse") {
+            $Geo = Get-AzSqlDatabaseGeoBackupPolicy -ResourceGroupName $Database.ResourceGroupName -DatabaseName $Database.DatabaseName -ServerName $Database.ServerName
+            $RedundancyConfig = $Geo.State.ToString()
+            Add-Record -SubscriptionName $Subscription.Name -SubscriptionId $Subscription.Id -ResourceGroup $Database.ResourceGroupName -Location $Database.Location -InstanceName $Database.DatabaseName -InstanceType $InstanceType -CurrentRedundancyType $RedundancyConfig -Remark $InstanceTypeDetail
+        }
+    }
 
     # Azure SQL Managed Instance
 }
 
 #Region Export
 # Prepare Summary
-foreach ($item in @("Recovery Services Vault", "Backup Vault", "Storage Account", "Api Management")) {
+foreach ($item in @("Recovery Services Vault", "Backup Vault", "Storage Account", "Api Management", "SQL Database Backup Storage Redundancy", "SQL Database Auto-Failover Group", "Dedicated SQL pool Geo-Backup Policy")) {
     if ($Global:RedundancySetting.InstanceType -notcontains $item) {
         $obj = New-Object -TypeName PSobject
         Add-Member -InputObject $obj -MemberType NoteProperty -Name "InstanceType" -Value $item
@@ -213,3 +291,13 @@ foreach ($item in ($Global:RedundancySetting | group InstanceType | select Name,
 $Global:RedundancySettingSummary | Export-Excel -Path $Global:ExcelFullPath -WorksheetName "Summary" -TableName "Summary" -TableStyle Medium16 -AutoSize -Append
 $Global:RedundancySetting | Export-Excel -Path $Global:ExcelFullPath -WorksheetName "InstanceDetail" -TableName "InstanceDetail" -TableStyle Medium16 -AutoSize -Append
 #EndRegion Export
+
+# End
+Write-Host ("`n[LOG] " + (Get-Date -Format "yyyy-MM-dd hh:mm")) -ForegroundColor White -BackgroundColor Black
+Write-Host "`nReplication and Resilience Assessment have been completed"
+$Global:EndTime = Get-Date
+$Duration = $Global:EndTime - $Global:StartTime
+Write-Host ("`nTotal Process Time: " + $Duration.Hours + " Hours " + $Duration.Minutes + " Minutes " + $Duration.Seconds + " Seconds") -ForegroundColor Blue -BackgroundColor Black
+Start-Sleep -Seconds 1
+Write-Host ("`nAssessment Result is exported to " + $Global:ExcelFullPath)
+Write-Host "`n"
