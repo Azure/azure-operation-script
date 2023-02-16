@@ -41,7 +41,7 @@ foreach ($Subscription in $Global:Subscriptions) {
 
     #Region Azure SQL
 	$SqlServers = Get-AzSqlServer
-	$Databases = $SqlServers | Get-AzSqlDatabase | ? {$_.DatabaseName -ne "Master" -and $_.Edition -ne "DataWarehouse"}
+	$Databases = $SqlServers | Get-AzSqlDatabase | ? {$_.DatabaseName -ne "Master" -and $_.SecondaryType -ne "Geo" -and $_.Edition -ne "DataWarehouse"} # Exclude Secondary SQL Server and Dedicated SQL pool
     $pe = Get-AzPrivateEndpoint
 
 	foreach ($Database in $Databases) {
