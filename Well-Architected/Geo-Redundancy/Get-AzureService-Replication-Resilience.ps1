@@ -102,7 +102,7 @@ foreach ($Subscription in $Global:Subscriptions) {
 
     # Recovery Services Vault
     Write-Host ("`nRecovery Services Vault") -ForegroundColor Blue
-    $RecoveryServicesVaults = Get-AzRecoveryServicesVault
+    $RecoveryServicesVaults = Get-AzRecoveryServicesVault | Sort-Object Name
 
     foreach ($RecoveryServicesVault in $RecoveryServicesVaults) {
         Write-Host $($RecoveryServicesVault.Name)
@@ -124,7 +124,7 @@ foreach ($Subscription in $Global:Subscriptions) {
 
     # Backup Vault
     Write-Host ("`nBackup Vault") -ForegroundColor Blue
-    $BackupVaults = Get-AzResource | ? {$_.ResourceType -eq "Microsoft.DataProtection/BackupVaults"}
+    $BackupVaults = Get-AzResource | ? {$_.ResourceType -eq "Microsoft.DataProtection/BackupVaults"} | Sort-Object Name
 
     foreach ($BackupVault in $BackupVaults) {
         Write-Host $($BackupVault.Name)
@@ -136,7 +136,7 @@ foreach ($Subscription in $Global:Subscriptions) {
 
     # Storage Account
     Write-Host ("`nStorage Account") -ForegroundColor Blue
-    $StorageAccounts = Get-AzStorageAccount
+    $StorageAccounts = Get-AzStorageAccount | Sort-Object StorageAccountName
 
     foreach ($StorageAccount in $StorageAccounts) {
         Write-Host $($StorageAccount.StorageAccountName)
@@ -146,7 +146,7 @@ foreach ($Subscription in $Global:Subscriptions) {
     
     # Api Management
     Write-Host ("`nApi Management") -ForegroundColor Blue
-    $apims = Get-AzApiManagement
+    $apims = Get-AzApiManagement | Sort-Object Name
 
     foreach ($apim in $apims) {
         Write-Host $($apim.Name)
@@ -182,7 +182,7 @@ foreach ($Subscription in $Global:Subscriptions) {
     # Azure SQL Database
     Write-Host ("`nSQL Database") -ForegroundColor Blue
     $SqlServers = Get-AzSqlServer
-	$Databases = $SqlServers | Get-AzSqlDatabase | ? {$_.DatabaseName -ne "Master" -and $_.SecondaryType -ne "Geo"}
+	$Databases = $SqlServers | Get-AzSqlDatabase | ? {$_.DatabaseName -ne "Master" -and $_.SecondaryType -ne "Geo"} | Sort-Object DatabaseName
 
 	foreach ($Database in $Databases) {
         Write-Host $($Database.DatabaseName)
@@ -235,8 +235,8 @@ foreach ($Subscription in $Global:Subscriptions) {
         # Failover Group
         $InstanceType = "SQL Database Auto-Failover Group"
         $InstanceTypeDetail = ""
-        $FailoverGroups = Get-AzSqlDatabaseFailoverGroup -ResourceGroupName $Database.ResourceGroupName -ServerName $Database.ServerName
         $RedundancyConfig = "Disabled"
+        $FailoverGroups = Get-AzSqlDatabaseFailoverGroup -ResourceGroupName $Database.ResourceGroupName -ServerName $Database.ServerName
         if (![string]::IsNullOrEmpty($FailoverGroups)) {
             foreach ($FailoverGroup in $FailoverGroups) {
                 if ($FailoverGroup.DatabaseNames -contains $Database.DatabaseName) {
@@ -249,9 +249,9 @@ foreach ($Subscription in $Global:Subscriptions) {
         Add-Record -SubscriptionName $Subscription.Name -SubscriptionId $Subscription.Id -ResourceGroup $Database.ResourceGroupName -Location $Database.Location -InstanceName $Database.DatabaseName -InstanceType $InstanceType -CurrentRedundancyType $RedundancyConfig -Remark $InstanceTypeDetail
 
         # Dedicated SQL pool
-        $InstanceType = "Dedicated SQL pool Geo-Backup Policy"
-        $InstanceTypeDetail = ""
         if ($Database.Edition -eq "DataWarehouse") {
+            $InstanceType = "Dedicated SQL pool Geo-Backup Policy"
+            $InstanceTypeDetail = ""
             $Geo = Get-AzSqlDatabaseGeoBackupPolicy -ResourceGroupName $Database.ResourceGroupName -DatabaseName $Database.DatabaseName -ServerName $Database.ServerName
             $RedundancyConfig = $Geo.State.ToString()
             Add-Record -SubscriptionName $Subscription.Name -SubscriptionId $Subscription.Id -ResourceGroup $Database.ResourceGroupName -Location $Database.Location -InstanceName $Database.DatabaseName -InstanceType $InstanceType -CurrentRedundancyType $RedundancyConfig -Remark $InstanceTypeDetail
@@ -259,11 +259,64 @@ foreach ($Subscription in $Global:Subscriptions) {
     }
 
     # Azure SQL Managed Instance
+    Write-Host ("`nSQL Managed Instance") -ForegroundColor Blue
+    $SqlServers = Get-AzSqlInstance | Sort-Object ManagedInstanceName
+
+    foreach ($SqlServer in $SqlServers) {
+        Write-Host $($SqlServer.ManagedInstanceName)
+
+        # Pricing Tier
+        $Edition = $SqlServer.Sku.Tier
+        $sku = $SqlServer.Sku.Name
+        $vCore = $SqlServer.VCores
+
+        # Availability Zone 
+        $ZoneRedundant = $SqlServer.ZoneRedundant
+        if ($ZoneRedundant) {
+            $ZoneRedundant = "Enabled"
+        } else {
+            $ZoneRedundant = "Disabled"
+        }
+        
+        # Backup Storage Redundancy
+        $InstanceType = "SQL Managed Instance Backup Storage Redundancy"
+        $InstanceTypeDetail = ""
+        if ([string]::IsNullOrEmpty($SqlServer.BackupStorageRedundancy)) {
+            $RedundancyConfig = "N/A"
+        } else {
+            $RedundancyConfig = $SqlServer.BackupStorageRedundancy
+        }
+
+        Add-Record -SubscriptionName $Subscription.Name -SubscriptionId $Subscription.Id -ResourceGroup $SqlServer.ResourceGroupName -Location $SqlServer.Location -InstanceName $SqlServer.ManagedInstanceName -InstanceType $InstanceType -CurrentRedundancyType $RedundancyConfig -Remark $InstanceTypeDetail
+
+        # Failover Group
+        $FailoverGroups = Get-AzSqlDatabaseInstanceFailoverGroup -ResourceGroupName $SqlServer.ResourceGroupName -Location $SqlServer.Location
+        $InstanceType = "SQL Managed Instance Auto-Failover Group"
+        $InstanceTypeDetail = ""
+        $RedundancyConfig = "Disabled"
+        $IsPrimary = $true
+        if (![string]::IsNullOrEmpty($FailoverGroups)) {
+            foreach ($FailoverGroup in $FailoverGroups) {
+                if ($FailoverGroup.PrimaryManagedInstanceName -eq $SqlServer.ManagedInstanceName -or $FailoverGroup.PartnerManagedInstanceName -eq $SqlServer.ManagedInstanceName) {
+                    $RedundancyConfig = "Enabled"
+                    $InstanceTypeDetail = "Failover Group Name: " + $FailoverGroup.Name.ToString()
+
+                    if ($FailoverGroup.ReplicationRole -ne "Primary") {
+                        $IsPrimary = $false
+                    }
+                }
+            }
+        }
+
+        if ($IsPrimary) {
+            Add-Record -SubscriptionName $Subscription.Name -SubscriptionId $Subscription.Id -ResourceGroup $SqlServer.ResourceGroupName -Location $SqlServer.Location -InstanceName $SqlServer.ManagedInstanceName -InstanceType $InstanceType -CurrentRedundancyType $RedundancyConfig -Remark $InstanceTypeDetail
+        }
+    }
 }
 
 #Region Export
 # Prepare Summary
-foreach ($item in @("Recovery Services Vault", "Backup Vault", "Storage Account", "Api Management", "SQL Database Backup Storage Redundancy", "SQL Database Auto-Failover Group", "Dedicated SQL pool Geo-Backup Policy")) {
+foreach ($item in @("Recovery Services Vault", "Backup Vault", "Storage Account", "Api Management", "SQL Database Backup Storage Redundancy", "SQL Database Auto-Failover Group", "Dedicated SQL pool Geo-Backup Policy", "SQL Managed Instance Backup Storage Redundancy", "SQL Managed Instance Auto-Failover Group")) {
     if ($Global:RedundancySetting.InstanceType -notcontains $item) {
         $obj = New-Object -TypeName PSobject
         Add-Member -InputObject $obj -MemberType NoteProperty -Name "InstanceType" -Value $item
@@ -289,7 +342,7 @@ foreach ($item in ($Global:RedundancySetting | group InstanceType | select Name,
 
 # Export to Excel File
 $Global:RedundancySettingSummary | Export-Excel -Path $Global:ExcelFullPath -WorksheetName "Summary" -TableName "Summary" -TableStyle Medium16 -AutoSize -Append
-$Global:RedundancySetting | Export-Excel -Path $Global:ExcelFullPath -WorksheetName "InstanceDetail" -TableName "InstanceDetail" -TableStyle Medium16 -AutoSize -Append
+$Global:RedundancySetting | Sort-Object InstanceType | Export-Excel -Path $Global:ExcelFullPath -WorksheetName "InstanceDetail" -TableName "InstanceDetail" -TableStyle Medium16 -AutoSize -Append
 #EndRegion Export
 
 # End
@@ -299,5 +352,4 @@ $Global:EndTime = Get-Date
 $Duration = $Global:EndTime - $Global:StartTime
 Write-Host ("`nTotal Process Time: " + $Duration.Hours + " Hours " + $Duration.Minutes + " Minutes " + $Duration.Seconds + " Seconds") -ForegroundColor Blue -BackgroundColor Black
 Start-Sleep -Seconds 1
-Write-Host ("`nAssessment Result is exported to " + $Global:ExcelFullPath)
-Write-Host "`n"
+Write-Host ("`nAssessment Result is exported to " + $Global:ExcelFullPath + "`n")
