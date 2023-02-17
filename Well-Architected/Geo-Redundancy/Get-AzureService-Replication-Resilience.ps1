@@ -159,7 +159,7 @@ foreach ($Subscription in $Global:Subscriptions) {
             [array]$AdditionalRegions = $apim.AdditionalRegions
 
             if ($AdditionalRegions.Count -gt 0) {
-                $RedundancyConfig = "Multi-Region"
+                $RedundancyConfig = "Multi-Region Enabled"
                 foreach ($AdditionalRegion in $AdditionalRegions) {
                     if ($InstanceTypeDetail -eq "") {
                         $InstanceTypeDetail = "Additional Region: " + $AdditionalRegion.Location
@@ -169,7 +169,7 @@ foreach ($Subscription in $Global:Subscriptions) {
                 }
             } else {
                 $RedundancyConfig = "Disabled"
-                $InstanceTypeDetail = "No Multi-Region deployment Deployment"
+                $InstanceTypeDetail = "No Multi-Region Deployment"
             }
             Add-Record -SubscriptionName $Subscription.Name -SubscriptionId $Subscription.Id -ResourceGroup $apim.ResourceGroupName -Location $apim.Location -InstanceName $apim.Name -InstanceType "Api Management" -CurrentRedundancyType $RedundancyConfig -Remark $InstanceTypeDetail
         } else {
@@ -234,8 +234,8 @@ foreach ($Subscription in $Global:Subscriptions) {
 
         # Failover Group
         $InstanceType = "SQL Database Auto-Failover Group"
-        $InstanceTypeDetail = ""
         $RedundancyConfig = "Disabled"
+        $InstanceTypeDetail = "No Multi-Region Deployment"
         $FailoverGroups = Get-AzSqlDatabaseFailoverGroup -ResourceGroupName $Database.ResourceGroupName -ServerName $Database.ServerName
         if (![string]::IsNullOrEmpty($FailoverGroups)) {
             foreach ($FailoverGroup in $FailoverGroups) {
@@ -292,8 +292,8 @@ foreach ($Subscription in $Global:Subscriptions) {
         # Failover Group
         $FailoverGroups = Get-AzSqlDatabaseInstanceFailoverGroup -ResourceGroupName $SqlServer.ResourceGroupName -Location $SqlServer.Location
         $InstanceType = "SQL Managed Instance Auto-Failover Group"
-        $InstanceTypeDetail = ""
         $RedundancyConfig = "Disabled"
+        $InstanceTypeDetail = "No Multi-Region Deployment"
         $IsPrimary = $true
         if (![string]::IsNullOrEmpty($FailoverGroups)) {
             foreach ($FailoverGroup in $FailoverGroups) {
@@ -335,7 +335,12 @@ foreach ($item in ($Global:RedundancySetting | group InstanceType | select Name,
         Add-Member -InputObject $obj -MemberType NoteProperty -Name "InstanceType" -Value $item.Name
         Add-Member -InputObject $obj -MemberType NoteProperty -Name "RedundancyType" -Value $type.Name
         Add-Member -InputObject $obj -MemberType NoteProperty -Name "Count" -Value $type.Count
-        Add-Member -InputObject $obj -MemberType NoteProperty -Name "Remark" -Value ($Global:RedundancySetting | ? {$_.InstanceType -eq $item.Name -and $_.CurrentRedundancyType -eq $type.Name} | select -First 1 | select -ExpandProperty Remark)
+        if ($type.Name -eq "Disabled") {
+            $Remark = ($Global:RedundancySetting | ? {$_.InstanceType -eq $item.Name -and $_.CurrentRedundancyType -eq $type.Name} | select -First 1 | select -ExpandProperty Remark)
+        } else {
+            $Remark = ""
+        }
+        Add-Member -InputObject $obj -MemberType NoteProperty -Name "Remark" -Value $Remark
         $Global:RedundancySettingSummary += $obj
     }
 }
