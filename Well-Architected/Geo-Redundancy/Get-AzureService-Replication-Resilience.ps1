@@ -347,7 +347,7 @@ foreach ($item in ($Global:RedundancySetting | group InstanceType | select Name,
 
 # Export to Excel File
 $Global:RedundancySettingSummary | Export-Excel -Path $Global:ExcelFullPath -WorksheetName "Summary" -TableName "Summary" -TableStyle Medium16 -AutoSize -Append
-$Global:RedundancySetting | Sort-Object InstanceType | Export-Excel -Path $Global:ExcelFullPath -WorksheetName "InstanceDetail" -TableName "InstanceDetail" -TableStyle Medium16 -AutoSize -Append
+$Global:RedundancySetting | Sort-Object InstanceType, InstanceName | Export-Excel -Path $Global:ExcelFullPath -WorksheetName "InstanceDetail" -TableName "InstanceDetail" -TableStyle Medium16 -AutoSize -Append
 #EndRegion Export
 
 # End
