@@ -116,6 +116,9 @@ foreach ($Subscription in $Global:Subscriptions) {
 
     # Get Session Host of each Host Pool
     foreach ($CurrentHostPool in $CurrentHostPools) {
+        # Re-apply current subscription context
+        $AzContext = Set-AzContext -SubscriptionId $Subscription.Id -TenantId $Subscription.TenantId
+        $CurrentSubscriptionId = $Subscription.Id
         $AvsRG = $CurrentHostPool.Id.Substring($CurrentHostPool.Id.IndexOf("/resourcegroups/") + 16)
         $AvsRG = $AvsRG.Substring(0, $AvsRG.IndexOf("/providers/Microsoft.DesktopVirtualization/"))
         $CurrentSessionHosts = Get-AzWvdSessionHost -ResourceGroupName $AvsRG -HostPoolName $CurrentHostPool.Name
@@ -126,12 +129,20 @@ foreach ($Subscription in $Global:Subscriptions) {
             # Get Session Host VM Size
             try {
                 $ExistingHostName = $CurrentSessionHosts[-1].Id.Split("/")[-1]
+                $VmSubscriptionId = $CurrentSessionHosts[-1].ResourceId.Split("/")[2]
+                
+                if ($VmSubscriptionId -ne $CurrentSubscriptionId) {
+                    $CurrentSubscriptionId = $VmSubscriptionId
+                    $AzContext = Set-AzContext -SubscriptionId $VmSubscriptionId -TenantId $Subscription.TenantId
+                }
+
                 $currentVmInfo = Get-AzVM -ResourceGroupName $CurrentSessionHosts[-1].ResourceId.Split("/")[4] -Name $ExistingHostName.Split(".")[0]
                 [string]$CurrentVmSize = $CurrentVmInfo.HardwareProfile.VmSize
                 $Location = Get-LocationDisplayName -Location $currentVmInfo.Location
             }
             catch {
                 Write-Host ($_ | ConvertTo-Json)
+                $Location = ""
             }
 
             # vCore
@@ -143,17 +154,22 @@ foreach ($Subscription in $Global:Subscriptions) {
                 $Global:Message += $msg
             }
 
+            # Unique Id
+            $Uid = ($CurrentVmSize + ";" + $currentVmInfo.Location)
+
             # Add Session Host and vCore status to temp array
-            if ($SubscriptionVmSizeSummary.VmSize -notcontains $CurrentVmSize) {
+            if ($SubscriptionVmSizeSummary.Uid -notcontains $Uid) {
                 $obj = New-Object -TypeName PSobject
                 Add-Member -InputObject $obj -MemberType NoteProperty -Name "VmSize" -Value $CurrentVmSize
                 Add-Member -InputObject $obj -MemberType NoteProperty -Name "NumberOfCores" -Value $NumberOfCores
+                Add-Member -InputObject $obj -MemberType NoteProperty -Name "Region" -Value $Location
                 Add-Member -InputObject $obj -MemberType NoteProperty -Name "HostTotal" -Value $CurrentSessionHosts.Count
                 Add-Member -InputObject $obj -MemberType NoteProperty -Name "vCoreTotal" -Value ($NumberOfCores * $CurrentSessionHosts.Count)
+                Add-Member -InputObject $obj -MemberType NoteProperty -Name "Uid" -Value $Uid
                 $SubscriptionVmSizeSummary += $obj
             } else {
                 foreach ($item in $SubscriptionVmSizeSummary) {
-                    if ($item.VmSize -eq $CurrentVmSize) {
+                    if ($item.Uid -eq $Uid) {
                         # Calculate Session Host
                         [int]$NewInstanceCount = $item.HostTotal + $CurrentSessionHosts.Count
                         $item.HostTotal = $NewInstanceCount
@@ -175,30 +191,32 @@ foreach ($Subscription in $Global:Subscriptions) {
     Write-Host ($($CurrentHostPools.Count).ToString() + " Host Pool(s)")
     Write-Host ($($SubscriptionSessionHosts.Count).ToString() + " Session Host(s)")
     Write-Host ($([int]$SubTotal = 0;$SubscriptionVmSizeSummary | % {$SubTotal += $_.vCoreTotal};$SubTotal).ToString() + " vCore(s)")
-    $SubscriptionVmSizeSummary = $SubscriptionVmSizeSummary | Sort-Object VmSize
-    $SubscriptionVmSizeSummary | ft -AutoSize
+    $SubscriptionVmSizeSummary = $SubscriptionVmSizeSummary | Sort-Object VmSize, Region
+    $SubscriptionVmSizeSummary | ft VmSize, NumberOfCores, Region, HostTotal, vCoreTotal -AutoSize
 
     # Add to Global Array
     $Global:SessionHosts += $SubscriptionSessionHosts
 
     foreach ($item in $SubscriptionVmSizeSummary) {
-        if ($Global:VmSizeSummary.VmSize -notcontains $item.VmSize) {
+        if ($Global:VmSizeSummary.Uid -notcontains $item.Uid) {
             $obj = New-Object -TypeName PSobject
             Add-Member -InputObject $obj -MemberType NoteProperty -Name "VmSize" -Value $item.VmSize
             Add-Member -InputObject $obj -MemberType NoteProperty -Name "NumberOfCores" -Value $item.NumberOfCores
+            Add-Member -InputObject $obj -MemberType NoteProperty -Name "Region" -Value $item.Region
             Add-Member -InputObject $obj -MemberType NoteProperty -Name "HostTotal" -Value $item.HostTotal
             Add-Member -InputObject $obj -MemberType NoteProperty -Name "vCoreTotal" -Value $item.vCoreTotal
+            Add-Member -InputObject $obj -MemberType NoteProperty -Name "Uid" -Value $item.Uid
             $Global:VmSizeSummary += $obj
         } else {
             # Calculate Session Host
-            $NewHost = $($Global:VmSizeSummary | ? {$_.VmSize -eq $item.VmSize}).HostTotal
+            $NewHost = $($Global:VmSizeSummary | ? {$_.Uid -eq $item.Uid}).HostTotal
             $NewHost += $item.HostTotal
-            $($Global:VmSizeSummary | ? {$_.VmSize -eq $item.VmSize}).HostTotal = $NewHost
+            $($Global:VmSizeSummary | ? {$_.Uid -eq $item.Uid}).HostTotal = $NewHost
 
             # Calculate vCore
-            $NewCore = $($Global:VmSizeSummary | ? {$_.VmSize -eq $item.VmSize}).vCoreTotal
+            $NewCore = $($Global:VmSizeSummary | ? {$_.Uid -eq $item.Uid}).vCoreTotal
             $NewCore += $item.vCoreTotal
-            $($Global:VmSizeSummary | ? {$_.VmSize -eq $item.VmSize}).vCoreTotal = $NewCore
+            $($Global:VmSizeSummary | ? {$_.Uid -eq $item.Uid}).vCoreTotal = $NewCore
         }
     }
 }
@@ -210,9 +228,9 @@ Write-Host ($($Global:SessionHosts.Count).ToString() + " Session Host(s)")
 Write-Host ($([int]$SubTotal = 0;$Global:VmSizeSummary | % {$SubTotal += $_.vCoreTotal};$SubTotal).ToString() + " vCore(s)")
 
 # Provisioning and Utilization
-$Global:VmSizeSummary = $Global:VmSizeSummary | Sort-Object VmSize
-$Global:VmSizeSummary | ft -AutoSize 
-$Global:VmSizeSummary | Export-Excel -Path $Global:ExcelFullPath -WorksheetName "AVD_Utilization" -TableName "AVD_Utilization" -TableStyle Medium16 -AutoSize -Append
+$Global:VmSizeSummary = $Global:VmSizeSummary | Sort-Object VmSize, Region
+$Global:VmSizeSummary | ft VmSize, NumberOfCores, Region, HostTotal, vCoreTotal -AutoSize 
+$Global:VmSizeSummary | select VmSize, NumberOfCores, Region, HostTotal, vCoreTotal | Export-Excel -Path $Global:ExcelFullPath -WorksheetName "AVD_Utilization" -TableName "AVD_Utilization" -TableStyle Medium16 -AutoSize -Append
 
 # Session Hosts Power Status
 $Global:SessionHosts | group Status | select Name, Count | Sort-Object Name | Export-Excel -Path $Global:ExcelFullPath -WorksheetName "PowerStatus" -TableName "PowerStatus" -TableStyle Medium16 -AutoSize -Append
@@ -240,6 +258,7 @@ foreach ($item in $Global:HostPools) {
     Add-Member -InputObject $obj -MemberType NoteProperty -Name "MaxSessionLimit" -Value $item.MaxSessionLimit
     Add-Member -InputObject $obj -MemberType NoteProperty -Name "AssignedScalingPlan" -Value $AssignedScalingPlan
     Add-Member -InputObject $obj -MemberType NoteProperty -Name "ScalingPlanSchedule" -Value $ScalingPlanSchedule
+    Add-Member -InputObject $obj -MemberType NoteProperty -Name "ApplicationGroupCount" -Value $item.ApplicationGroupReference.Count
     $Global:HostPoolsSummary += $obj
 }
 
