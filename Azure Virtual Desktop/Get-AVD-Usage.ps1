@@ -4,6 +4,7 @@ $ExcelOutputFolder = "C:\Temp"
 $ExcelFileName = "AVD-Usage.xlsx" # Export Result to Excel file 
 
 # Script Variable
+$Global:Subscriptions = @()
 if ($ExcelOutputFolder -notlike "*\") {$ExcelOutputFolder += "\"}
 $Global:ExcelFullPath = $ExcelOutputFolder + $ExcelFileName
 $Global:ScalingPlanAssignment = @()
@@ -31,7 +32,6 @@ function Get-LocationDisplayName {
 }
 
 # Login and get list of subscription(s)
-$Global:Subscriptions = @()
 foreach ($TenantId in $TenantIds) {
     Connect-AzAccount -TenantId $TenantId
     $Global:Subscriptions += Get-AzSubscription -TenantId $TenantId | ? {$_.Name -like "*AVD*"} # Retrieve specific subscription(s) where AVD exists
@@ -105,7 +105,7 @@ foreach ($Subscription in $Global:Subscriptions) {
     
     # Set current subscription
     $AzContext = Set-AzContext -SubscriptionId $Subscription.Id -TenantId $Subscription.TenantId
-    Write-Host ("`nProcessing " + $CurrentItem + " out of " + $Global:Subscriptions.Count + " Subscription: " + $Subscription.name) -ForegroundColor Yellow
+    Write-Host ("`nProcessing " + $CurrentItem + " out of " + $Global:Subscriptions.Count + " Subscription: " + $Subscription.Name) -ForegroundColor Yellow
     $CurrentItem++
 
     # Get Host Pool
