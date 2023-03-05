@@ -20,7 +20,7 @@ foreach ($Subscription in $Global:Subscriptions) {
     
     # Set current subscription
     $AzContext = Set-AzContext -SubscriptionId $Subscription.Id -TenantId $Subscription.TenantId
-    Write-Host ("`nProcessing " + $CurrentItem + " out of " + $Global:Subscriptions.Count + " Subscription: " + $Subscription.name) -ForegroundColor Yellow
+    Write-Host ("`nProcessing " + $CurrentItem + " out of " + $Global:Subscriptions.Count + " Subscription: " + $Subscription.Name) -ForegroundColor Yellow
     $CurrentItem++
     
     # Get Usage and Quota
@@ -31,8 +31,8 @@ foreach ($Subscription in $Global:Subscriptions) {
 
         # Save to Temp Object
         $obj = New-Object -TypeName PSobject
-        Add-Member -InputObject $obj -MemberType NoteProperty -Name "SubscriptionName" -Value $Subscription.name
-        Add-Member -InputObject $obj -MemberType NoteProperty -Name "SubscriptionId" -Value $Subscription.id
+        Add-Member -InputObject $obj -MemberType NoteProperty -Name "SubscriptionName" -Value $Subscription.Name
+        Add-Member -InputObject $obj -MemberType NoteProperty -Name "SubscriptionId" -Value $Subscription.Id
         Add-Member -InputObject $obj -MemberType NoteProperty -Name "ItemName" -Value $usage.Name.LocalizedValue
         Add-Member -InputObject $obj -MemberType NoteProperty -Name "Limit" -Value $usage.Limit
         Add-Member -InputObject $obj -MemberType NoteProperty -Name "Used" -Value $usage.CurrentValue
