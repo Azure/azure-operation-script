@@ -34,7 +34,7 @@ Any use of third-party trademarks or logos are subject to those third-party's po
 
 > The version stated below is the baseline only, recommend to install newer version
 
-> Azure Cloud Shell require to install PowerShell Module **ImportExcel** and **PnP.PowerShell** only
+> Recommend to run the scripts using the local PowerShell session
 
 | Item | Name | Version | Installation | 
 | - | - | - | - | 
@@ -51,22 +51,28 @@ Any use of third-party trademarks or logos are subject to those third-party's po
 ```PowerShell
 # Run the command to verify the installed module
 Get-InstalledModule
-
+```
 
 ### Installation
 
-```PowerShell 7
+```PowerShell
 # Run as Administrator to install for Powershell 7
-Install-Module -Name Az -RequiredVersion 9.3.0 -Confirm:$false -Force
-Install-Module -Name Az.DataProtection -RequiredVersion 1.0.1 -Confirm:$false -Force
-Install-Module -Name ImportExcel -RequiredVersion 7.7.0 -Confirm:$false -Force
-Install-Module -Name PnP.PowerShell -RequiredVersion 1.11.0 -Confirm:$false -Force
+Install-Module -Name Az -RequiredVersion 9.3.0 -Force -Confirm:$false
+Install-Module -Name Az.DataProtection -RequiredVersion 1.0.1 -Force -Confirm:$false
+Install-Module -Name ImportExcel -RequiredVersion 7.7.0 -Force -Confirm:$false
+Install-Module -Name PnP.PowerShell -RequiredVersion 1.11.0 -Force -Confirm:$false
 ```
 
 ```PowerShell
 # Run as Administrator to install for Powershell 5.1
-Install-Module -Name AzureAD -RequiredVersion 2.0.2.140 -Confirm:$false -Force
-Install-Module -Name ImportExcel -RequiredVersion 7.7.0 -Confirm:$false -Force
+Install-Module -Name AzureAD -RequiredVersion 2.0.2.140 -Force -Confirm:$false
+Install-Module -Name ImportExcel -RequiredVersion 7.7.0 -Force -Confirm:$false
+```
+
+```PowerShell
+# Azure Cloud Shell
+Install-Module -Name ImportExcel -RequiredVersion 7.7.0 -Force -Confirm:$false
+Install-Module -Name PnP.PowerShell -RequiredVersion 1.11.0 -Force -Confirm:$false
 ```
 
 ### Script Parameter
@@ -81,7 +87,7 @@ Most of the scripts support to retrieve information or modify configuration from
 
 ```PowerShell
 foreach ($Subscription in $Global:Subscriptions) {
-  # ...
+
 }
 ```
 
@@ -97,7 +103,7 @@ $Global:Subscriptions = Get-AzSubscription -TenantId $TenantId | ? {$_.State -eq
 # Get specific subscription
 $TenantId = "Tenant Id"
 $SubscriptionName = "Subscription Name"
-$Global:Subscriptions = Get-AzSubscription -TenantId $TenantId | ? {$_.Name -like "*$SubscriptionName*" -and $_.State -eq "Enabled"} 
+$Global:Subscriptions = Get-AzSubscription -TenantId $TenantId | ? {$_.Name -like "*$SubscriptionName*"} 
 ```
 
 # Issue Log
