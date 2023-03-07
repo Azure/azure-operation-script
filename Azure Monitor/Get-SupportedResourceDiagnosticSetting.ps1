@@ -153,7 +153,7 @@ function Clear-UnsupportedResourceType {
 # Login and get list of subscription(s)
 foreach ($TenantId in $TenantIds) {
     Connect-AzAccount -TenantId $TenantId
-    $Global:Subscriptions += Get-AzSubscription -TenantId $TenantId
+    $Global:Subscriptions += Get-AzSubscription -TenantId $TenantId | ? {$_.State -eq "Enabled" -and $_.Name -ne "Access to Azure Active Directory"} 
     Start-Sleep -Seconds 2
 }
 $Global:Subscriptions = $Global:Subscriptions | Sort-Object TenantId, Name
@@ -169,7 +169,7 @@ foreach ($Subscription in $Global:Subscriptions) {
     $CurrentItem++
 
     # Get Azure Resources
-    $list = Get-AzResource | ? {$_.ResourceGroupName -notlike "databricks-rg*"} # Add filter $_.ResourceType if focus on specific resource type
+    $list = Get-AzResource | ? {$_.ResourceGroupName -notlike "databricks-rg*"} # Add filter $_.ResourceType to focus on specific resource type
 
     # Filter Azure Resources that support Diagnostic Settings
     $list = Clear-UnsupportedResourceType -AzResources $list
