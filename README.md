@@ -40,27 +40,33 @@ Any use of third-party trademarks or logos are subject to those third-party's po
 | - | - | - | - | 
 | 1 | PowerShell | 5.1 <br /> 7.2.2 | [docs.microsoft.com](https://docs.microsoft.com/en-us/powershell/scripting/install/installing-powershell-on-windows)  | 
 | 2 | Az Module | 9.3.0 | [PowerShell Gallery](https://www.powershellgallery.com/packages/Az) |
-| 3 | Az.DataProtection Module | 0.3.0 | [PowerShell Gallery](https://www.powershellgallery.com/packages/Az.DataProtection) |
+| 3 | Az.DataProtection Module | 1.0.1 | [PowerShell Gallery](https://www.powershellgallery.com/packages/Az.DataProtection) |
 | 4 | Azure Active Directory V2 Module (AzureAD) | 2.0.2.140 | [PowerShell Gallery](https://www.powershellgallery.com/packages/AzureAD) |
 | 5 | Azure CLI | 2.35.0 | [docs.microsoft.com](https://docs.microsoft.com/en-us/cli/azure/install-azure-cli) |
-| 6 | ImportExcel | 7.4.2 | [PowerShell Gallery](https://www.powershellgallery.com/packages/ImportExcel) |
+| 6 | ImportExcel | 7.7.0 | [PowerShell Gallery](https://www.powershellgallery.com/packages/ImportExcel) |
 | 7 | PnP.PowerShell | 1.11.0 | [PowerShell Gallery](https://www.powershellgallery.com/packages/PnP.PowerShell) |
 
-### Installation
+### Verifying
 
 ```PowerShell
 # Run the command to verify the installed module
 Get-InstalledModule
 
+
+### Installation
+
+```PowerShell 7
 # Run as Administrator to install for Powershell 7
 Install-Module -Name Az -RequiredVersion 9.3.0 -Confirm:$false -Force
-Install-Module -Name Az.DataProtection -RequiredVersion 0.3.0 -Confirm:$false -Force
-Install-Module -Name ImportExcel -RequiredVersion 7.4.2 -Confirm:$false -Force
+Install-Module -Name Az.DataProtection -RequiredVersion 1.0.1 -Confirm:$false -Force
+Install-Module -Name ImportExcel -RequiredVersion 7.7.0 -Confirm:$false -Force
 Install-Module -Name PnP.PowerShell -RequiredVersion 1.11.0 -Confirm:$false -Force
+```
 
+```PowerShell
 # Run as Administrator to install for Powershell 5.1
 Install-Module -Name AzureAD -RequiredVersion 2.0.2.140 -Confirm:$false -Force
-Install-Module -Name ImportExcel -RequiredVersion 7.4.2 -Confirm:$false -Force
+Install-Module -Name ImportExcel -RequiredVersion 7.7.0 -Confirm:$false -Force
 ```
 
 ### Script Parameter
