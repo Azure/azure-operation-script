@@ -5,7 +5,7 @@ $ExcelFileName = "Replication-Assessment.xlsx" # Export Result to Excel file
 
 # Script Variable
 if ($ExcelOutputFolder -notlike "*\") {$ExcelOutputFolder += "\"}
-$Global:ExcelFullPath = $Global:ExcelOutputFolder + $ExcelFileName
+$Global:ExcelFullPath = $ExcelOutputFolder + $ExcelFileName
 $Global:ReplicationPair = @()
 $Global:RedundancySetting = @()
 $Global:RedundancySettingSummary = @()
@@ -97,7 +97,7 @@ foreach ($Subscription in $Global:Subscriptions) {
     
     # Set current subscription
     $AzContext = Set-AzContext -SubscriptionId $Subscription.Id -TenantId $Subscription.TenantId
-    Write-Host ("`nProcessing " + $CurrentItem + " out of " + $Global:Subscriptions.Count + " Subscription: " + $Subscription.name) -ForegroundColor Yellow
+    Write-Host ("`nProcessing " + $CurrentItem + " out of " + $Global:Subscriptions.Count + " Subscription: " + $Subscription.Name) -ForegroundColor Yellow
     $CurrentItem++
 
     # Recovery Services Vault
@@ -312,11 +312,63 @@ foreach ($Subscription in $Global:Subscriptions) {
             Add-Record -SubscriptionName $Subscription.Name -SubscriptionId $Subscription.Id -ResourceGroup $SqlServer.ResourceGroupName -Location $SqlServer.Location -InstanceName $SqlServer.ManagedInstanceName -InstanceType $InstanceType -CurrentRedundancyType $RedundancyConfig -Remark $InstanceTypeDetail
         }
     }
+
+    #Region Event Hub
+    Write-Host ("`nEvent Hub") -ForegroundColor Blue
+    $EventHubs = Get-AzEventHubNamespace
+    $InstanceType = "Event Hub"
+    $InstanceTypeDetail = "Event Hub Namespace"
+
+    foreach ($EventHub in $EventHubs) {
+        Write-Host $($EventHub.Name)
+
+        # SKU
+        $sku = ($EventHub.Sku.Tier + ": " + $EventHub.Sku.Capacity + " Unit")
+        
+        # Auto-Inflate
+        if ($EventHub.IsAutoInflateEnabled -eq $true) {
+            $remark = "Auto-Inflate Enabled, Maximum Throughput Units: " + $EventHub.MaximumThroughputUnits
+        } else {
+            $remark = ""
+        }
+        
+        # Geo-Recovery
+        $GeoDR = $null
+        
+        try {
+            $GeoDR = Get-AzEventHubGeoDRConfiguration -ResourceGroupName $EventHub.ResourceGroupName -Namespace $EventHub.Name -ErrorAction SilentlyContinue
+        } catch {
+            
+        }
+        
+        if ($GeoDR -ne $null) {
+            if ($GeoDR.Role -ne "PrimaryNotReplicating") {
+                $PartnerNamespace = $GeoDR.PartnerNamespace.Substring($GeoDR.PartnerNamespace.IndexOf("/namespaces/") + ("/namespaces/".Length))
+                $remark += ("; Geo-Recovery Partner Namespace: " + $PartnerNamespace)
+            }
+        }
+        
+        if ($EventHub.ZoneRedundant -eq $true) {
+            if ($GeoDR -ne $null) {
+                $RedundancyConfig = "Zone Redundant with Geo-Recovery (" + $GeoDR.Role + ")"
+            } else {
+                $RedundancyConfig = "Zone Redundant"
+            }
+        } else {
+            if ($GeoDR -ne $null) {
+                $RedundancyConfig = "Geo-Recovery (" + $GeoDR.Role + ")"
+            } else {
+                $RedundancyConfig = "No Redundant"
+            }
+        }
+        Add-Record -SubscriptionName $Subscription.Name -SubscriptionId $Subscription.Id -ResourceGroup $EventHub.ResourceGroupName -Location $EventHub.Location -InstanceName $EventHub.Name -InstanceType $InstanceType -CurrentRedundancyType $RedundancyConfig -Remark $InstanceTypeDetail
+    }
+    #EndRegion Event Hub
 }
 
 #Region Export
 # Prepare Summary
-foreach ($item in @("Recovery Services Vault", "Backup Vault", "Storage Account", "Api Management", "SQL Database Backup Storage Redundancy", "SQL Database Auto-Failover Group", "Dedicated SQL pool Geo-Backup Policy", "SQL Managed Instance Backup Storage Redundancy", "SQL Managed Instance Auto-Failover Group")) {
+foreach ($item in @("Recovery Services Vault", "Backup Vault", "Storage Account", "Api Management", "SQL Database Backup Storage Redundancy", "SQL Database Auto-Failover Group", "Dedicated SQL pool Geo-Backup Policy", "SQL Managed Instance Backup Storage Redundancy", "SQL Managed Instance Auto-Failover Group", "Event Hub")) {
     if ($Global:RedundancySetting.InstanceType -notcontains $item) {
         $obj = New-Object -TypeName PSobject
         Add-Member -InputObject $obj -MemberType NoteProperty -Name "InstanceType" -Value $item
