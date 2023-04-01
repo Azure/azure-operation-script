@@ -313,9 +313,34 @@ foreach ($Subscription in $Global:Subscriptions) {
         }
     }
 
+    # Azure Database for MySQL flexible Server
+    Write-Host ("`nMySQL flexible Server") -ForegroundColor Blue
+    $SqlFlexibleServers = Get-AzMySqlFlexibleServer | Sort-Object Name
+
+    foreach ($SqlFlexibleServer in $SqlFlexibleServers) {
+        Write-Host $($SqlFlexibleServer.Name)
+        $SqlFlexibleServerRG = ($SqlFlexibleServer.Id -split "/")[4]
+
+        # High Availability
+        $InstanceType = "MySQL flexible Server High Availability"
+        $RedundancyConfig = $SqlFlexibleServer.HighAvailabilityMode 
+        $InstanceTypeDetail = $SqlFlexibleServer.HighAvailabilityState
+        Add-Record -SubscriptionName $Subscription.Name -SubscriptionId $Subscription.Id -ResourceGroup $SqlFlexibleServerRG -Location $SqlFlexibleServer.Location -InstanceName $SqlFlexibleServer.Name -InstanceType $InstanceType -CurrentRedundancyType $RedundancyConfig -Remark $InstanceTypeDetail
+    
+        # Backup Storage Redundancy
+        $InstanceType = "MySQL flexible Server Backup Storage Redundancy"
+        $InstanceTypeDetail = ""
+        if ($SqlFlexibleServer.BackupGeoRedundantBackup -eq "Enabled") {
+            $RedundancyConfig = "Geo"
+        } else {
+            $RedundancyConfig = "LRS"
+        }
+        Add-Record -SubscriptionName $Subscription.Name -SubscriptionId $Subscription.Id -ResourceGroup $SqlFlexibleServerRG -Location $SqlFlexibleServer.Location -InstanceName $SqlFlexibleServer.Name -InstanceType $InstanceType -CurrentRedundancyType $RedundancyConfig -Remark $InstanceTypeDetail
+    }
+
     #Region Event Hub
     Write-Host ("`nEvent Hub") -ForegroundColor Blue
-    $EventHubs = Get-AzEventHubNamespace
+    $EventHubs = Get-AzEventHubNamespace | Sort-Object Name
     $InstanceType = "Event Hub"
     $InstanceTypeDetail = "Event Hub Namespace"
 
@@ -368,7 +393,7 @@ foreach ($Subscription in $Global:Subscriptions) {
 
 #Region Export
 # Prepare Summary
-foreach ($item in @("Recovery Services Vault", "Backup Vault", "Storage Account", "Api Management", "SQL Database Backup Storage Redundancy", "SQL Database Auto-Failover Group", "Dedicated SQL pool Geo-Backup Policy", "SQL Managed Instance Backup Storage Redundancy", "SQL Managed Instance Auto-Failover Group", "Event Hub")) {
+foreach ($item in @("Recovery Services Vault", "Backup Vault", "Storage Account", "Api Management", "SQL Database Backup Storage Redundancy", "SQL Database Auto-Failover Group", "Dedicated SQL pool Geo-Backup Policy", "SQL Managed Instance Backup Storage Redundancy", "SQL Managed Instance Auto-Failover Group", "MySQL flexible Server High Availability", "MySQL flexible Server Backup Storage Redundancy", "Event Hub")) {
     if ($Global:RedundancySetting.InstanceType -notcontains $item) {
         $obj = New-Object -TypeName PSobject
         Add-Member -InputObject $obj -MemberType NoteProperty -Name "InstanceType" -Value $item
