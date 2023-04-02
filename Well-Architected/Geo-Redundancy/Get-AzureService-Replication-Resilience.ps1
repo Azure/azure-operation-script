@@ -67,6 +67,7 @@ Import-Module ImportExcel
 # Get Azure Subscription
 # Referring to https://github.com/Azure/azure-operation-script#subscription-management
 #$Global:Subscriptions = Get-AzSubscription -TenantId $TenantId | ? {$_.State -eq "Enabled" -and $_.Name -ne "Access to Azure Active Directory"}
+$Global:Subscriptions = Import-Csv SubscriptionList.csv
 
 # Get the Latest Location Name, Display Name, and Paired Region
 $Global:NameReference = Get-AzLocation | ? {$_.RegionType -eq "Physical" -and $_.DisplayName -notlike "*EUAP*"} | Sort-Object GeographyGroup, DisplayName
@@ -102,7 +103,9 @@ foreach ($Subscription in $Global:Subscriptions) {
 
     # Recovery Services Vault
     Write-Host ("`nRecovery Services Vault") -ForegroundColor Blue
+    $InstanceType = "Recovery Services Vault"
     $RecoveryServicesVaults = Get-AzRecoveryServicesVault | Sort-Object Name
+    $ReplicationProtectedItems = @()
 
     foreach ($RecoveryServicesVault in $RecoveryServicesVaults) {
         Write-Host $($RecoveryServicesVault.Name)
@@ -119,11 +122,23 @@ foreach ($Subscription in $Global:Subscriptions) {
             }
         } 
  
-        Add-Record -SubscriptionName $Subscription.Name -SubscriptionId $Subscription.Id -ResourceGroup $RecoveryServicesVault.ResourceGroupName -Location $RecoveryServicesVault.Location -InstanceName $RecoveryServicesVault.Name -InstanceType "Recovery Services Vault" -CurrentRedundancyType $RedundancyConfig -Remark ""
+        Add-Record -SubscriptionName $Subscription.Name -SubscriptionId $Subscription.Id -ResourceGroup $RecoveryServicesVault.ResourceGroupName -Location $RecoveryServicesVault.Location -InstanceName $RecoveryServicesVault.Name -InstanceType $InstanceType -CurrentRedundancyType $RedundancyConfig -Remark ""
+    
+        # VM Disaster Recovery
+        $VaultContext = Set-AzRecoveryServicesAsrVaultContext -Vault $RecoveryServicesVault # Perform action 'Microsoft.RecoveryServices/vaults/extendedInformation/write' 
+        $fabrics = Get-AzRecoveryServicesAsrFabric
+        foreach ($fabric in $fabrics) {
+            $ProtectionContainers = Get-AzRecoveryServicesAsrProtectionContainer -Fabric $fabric | ? {$_.FabricType -eq "Azure"}
+
+            foreach ($ProtectionContainer in $ProtectionContainers) {
+                $ReplicationProtectedItems += Get-AzRecoveryServicesAsrReplicationProtectedItem -ProtectionContainer $ProtectionContainer
+            }
+        }
     }
 
     # Backup Vault
     Write-Host ("`nBackup Vault") -ForegroundColor Blue
+    $InstanceType = "Backup Vault"
     $BackupVaults = Get-AzResource | ? {$_.ResourceType -eq "Microsoft.DataProtection/BackupVaults"} | Sort-Object Name
 
     foreach ($BackupVault in $BackupVaults) {
@@ -131,21 +146,65 @@ foreach ($Subscription in $Global:Subscriptions) {
         $BackupVaultInstance = Get-AzDataProtectionBackupVault -ResourceGroupName $BackupVault.ResourceGroupName -VaultName $BackupVault.Name
         $RedundancyConfig = $BackupVaultInstance.StorageSetting.Type
         
-        Add-Record -SubscriptionName $Subscription.Name -SubscriptionId $Subscription.Id -ResourceGroup $BackupVault.ResourceGroupName -Location $BackupVaultInstance.Location -InstanceName $BackupVaultInstance.Name -InstanceType "Backup Vault" -CurrentRedundancyType $RedundancyConfig -Remark ""
+        Add-Record -SubscriptionName $Subscription.Name -SubscriptionId $Subscription.Id -ResourceGroup $BackupVault.ResourceGroupName -Location $BackupVaultInstance.Location -InstanceName $BackupVaultInstance.Name -InstanceType $InstanceType -CurrentRedundancyType $RedundancyConfig -Remark ""
+    }
+
+    # Virtual Machine
+    Write-Host ("`nVirtual Machine") -ForegroundColor Blue
+    $InstanceType = "Virtual Machine Disaster Recovery"
+    $vms = Get-AzVM | ? {$_.ResourceGroupName -notlike "databricks-rg*"}
+
+    foreach ($vm in $vms) {
+        Write-Host $($vm.Name)
+        $InstanceTypeDetail = "Standalone"
+        
+        # Location
+        [array]$array = $vm.Zones
+        $Location = $vm.Location 
+
+        if ($array.Count -gt 0) {
+            $Location = $Location + " (Zone: " + ($array -join ",") + ")"
+        } else {
+            $Location = $Location
+        }
+
+        # Availability Set
+        if ($vm.AvailabilitySetReference.Id -ne $null ) {
+            $InstanceTypeDetail = "Availability Set"
+        }
+        
+        # Virtual Machine Scale Set
+        if ($vm.VirtualMachineScaleSet -ne $null ) {
+            $InstanceTypeDetail = "Virtual Machine Scale Set"
+        }
+
+        # Disaster Recovery
+        $IsAsrEnabled = $ReplicationProtectedItems.ProviderSpecificDetails | ? {$_.FabricObjectId -eq $vm.Id}
+
+        if ($IsAsrEnabled -and $IsAsrEnabled -ne $null) {
+            $RedundancyConfig = "Enabled"
+        } else {
+            $RedundancyConfig = "Disabled"
+        }
+
+        # Add-Record
+        Add-Record -SubscriptionName $Subscription.Name -SubscriptionId $Subscription.Id -ResourceGroup $vm.ResourceGroupName -Location $Location -InstanceName $vm.Name -InstanceType $InstanceType -CurrentRedundancyType $RedundancyConfig -Remark $InstanceTypeDetail
     }
 
     # Storage Account
     Write-Host ("`nStorage Account") -ForegroundColor Blue
+    $InstanceType = "Storage Account"
     $StorageAccounts = Get-AzStorageAccount | Sort-Object StorageAccountName
 
     foreach ($StorageAccount in $StorageAccounts) {
         Write-Host $($StorageAccount.StorageAccountName)
         $RedundancyConfig = $StorageAccount.Sku.Name.Substring($StorageAccount.Sku.Name.IndexOf("_") + 1)
-        Add-Record -SubscriptionName $Subscription.Name -SubscriptionId $Subscription.Id -ResourceGroup $StorageAccount.ResourceGroupName -Location $StorageAccount.Location -InstanceName $StorageAccount.StorageAccountName -InstanceType "Storage Account" -CurrentRedundancyType $RedundancyConfig -Remark ""
+        Add-Record -SubscriptionName $Subscription.Name -SubscriptionId $Subscription.Id -ResourceGroup $StorageAccount.ResourceGroupName -Location $StorageAccount.Location -InstanceName $StorageAccount.StorageAccountName -InstanceType $InstanceType -CurrentRedundancyType $RedundancyConfig -Remark ""
     }
     
     # Api Management
     Write-Host ("`nApi Management") -ForegroundColor Blue
+    $InstanceType = "Api Management"
     $apims = Get-AzApiManagement | Sort-Object Name
 
     foreach ($apim in $apims) {
@@ -171,11 +230,11 @@ foreach ($Subscription in $Global:Subscriptions) {
                 $RedundancyConfig = "Disabled"
                 $InstanceTypeDetail = "No Multi-Region Deployment"
             }
-            Add-Record -SubscriptionName $Subscription.Name -SubscriptionId $Subscription.Id -ResourceGroup $apim.ResourceGroupName -Location $apim.Location -InstanceName $apim.Name -InstanceType "Api Management" -CurrentRedundancyType $RedundancyConfig -Remark $InstanceTypeDetail
+            Add-Record -SubscriptionName $Subscription.Name -SubscriptionId $Subscription.Id -ResourceGroup $apim.ResourceGroupName -Location $apim.Location -InstanceName $apim.Name -InstanceType $InstanceType -CurrentRedundancyType $RedundancyConfig -Remark $InstanceTypeDetail
         } else {
             $RedundancyConfig = "Multi-Region not supported by current Sku"
             $InstanceTypeDetail = ""
-            Add-Record -SubscriptionName $Subscription.Name -SubscriptionId $Subscription.Id -ResourceGroup $apim.ResourceGroupName -Location $apim.Location -InstanceName $apim.Name -InstanceType "Api Management" -CurrentRedundancyType $RedundancyConfig -Remark $InstanceTypeDetail
+            Add-Record -SubscriptionName $Subscription.Name -SubscriptionId $Subscription.Id -ResourceGroup $apim.ResourceGroupName -Location $apim.Location -InstanceName $apim.Name -InstanceType $InstanceType -CurrentRedundancyType $RedundancyConfig -Remark $InstanceTypeDetail
         }
     }
 
@@ -393,7 +452,7 @@ foreach ($Subscription in $Global:Subscriptions) {
 
 #Region Export
 # Prepare Summary
-foreach ($item in @("Recovery Services Vault", "Backup Vault", "Storage Account", "Api Management", "SQL Database Backup Storage Redundancy", "SQL Database Auto-Failover Group", "Dedicated SQL pool Geo-Backup Policy", "SQL Managed Instance Backup Storage Redundancy", "SQL Managed Instance Auto-Failover Group", "MySQL flexible Server High Availability", "MySQL flexible Server Backup Storage Redundancy", "Event Hub")) {
+foreach ($item in @("Recovery Services Vault", "Backup Vault", "Virtual Machine Disaster Recovery", "Storage Account", "Api Management", "SQL Database Backup Storage Redundancy", "SQL Database Auto-Failover Group", "Dedicated SQL pool Geo-Backup Policy", "SQL Managed Instance Backup Storage Redundancy", "SQL Managed Instance Auto-Failover Group", "MySQL flexible Server High Availability", "MySQL flexible Server Backup Storage Redundancy", "Event Hub")) {
     if ($Global:RedundancySetting.InstanceType -notcontains $item) {
         $obj = New-Object -TypeName PSobject
         Add-Member -InputObject $obj -MemberType NoteProperty -Name "InstanceType" -Value $item
