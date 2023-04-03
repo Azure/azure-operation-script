@@ -1,5 +1,5 @@
 # Global Parameter
-$TenantId = ""
+#$TenantId = ""
 $ExcelOutputFolder = "C:\Temp"
 $ExcelFileName = "Replication-Assessment.xlsx" # Export Result to Excel file 
 
@@ -397,7 +397,7 @@ foreach ($Subscription in $Global:Subscriptions) {
         Add-Record -SubscriptionName $Subscription.Name -SubscriptionId $Subscription.Id -ResourceGroup $SqlFlexibleServerRG -Location $SqlFlexibleServer.Location -InstanceName $SqlFlexibleServer.Name -InstanceType $InstanceType -CurrentRedundancyType $RedundancyConfig -Remark $InstanceTypeDetail
     }
 
-    #Region Event Hub
+    # Event Hub
     Write-Host ("`nEvent Hub") -ForegroundColor Blue
     $EventHubs = Get-AzEventHubNamespace | Sort-Object Name
     $InstanceType = "Event Hub"
@@ -447,7 +447,7 @@ foreach ($Subscription in $Global:Subscriptions) {
         }
         Add-Record -SubscriptionName $Subscription.Name -SubscriptionId $Subscription.Id -ResourceGroup $EventHub.ResourceGroupName -Location $EventHub.Location -InstanceName $EventHub.Name -InstanceType $InstanceType -CurrentRedundancyType $RedundancyConfig -Remark $InstanceTypeDetail
     }
-    #EndRegion Event Hub
+    # Event Hub
 }
 
 #Region Export
