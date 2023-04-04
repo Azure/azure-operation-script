@@ -62,11 +62,9 @@ Import-Module ImportExcel
 
 # Login
 # Referring to https://github.com/Azure/azure-operation-script/tree/dev/Connection
-#Connect-AzAccount -Tenant $TenantId
 
 # Get Azure Subscription
 # Referring to https://github.com/Azure/azure-operation-script#subscription-management
-#$Global:Subscriptions = Get-AzSubscription -TenantId $TenantId | ? {$_.State -eq "Enabled" -and $_.Name -ne "Access to Azure Active Directory"}
 $Global:Subscriptions = Import-Csv SubscriptionList.csv
 
 # Get the Latest Location Name, Display Name, and Paired Region
