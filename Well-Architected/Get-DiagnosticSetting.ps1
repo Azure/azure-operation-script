@@ -147,13 +147,13 @@ foreach ($Subscription in $Global:Subscriptions) {
     
     # Set current subscription
     $AzContext = Set-AzContext -SubscriptionId $Subscription.Id -TenantId $Subscription.TenantId
-    Write-Host ("`nProcessing " + $CurrentItem + " out of " + $Global:Subscriptions.Count + " Subscription: " + $Subscription.name) -ForegroundColor Yellow
+    Write-Host ("`nProcessing " + $CurrentItem + " out of " + $Global:Subscriptions.Count + " Subscription: " + $Subscription.Name) -ForegroundColor Yellow
     $CurrentItem++
 
-    # Get all Azure Resources
+    # Get Azure Resources
     $TempList = Get-AzResource | ? {$_.ResourceGroupName -notlike "databricks-rg*"}
 
-    # Filtering 
+    # Filter Azure Resources that support Diagnostic Settings
     $TempList = Clear-UnsupportedResourceType -AzResources $TempList
     $TempList = $TempList | sort ResourceType, ResourceGroupName, ResourceName
     Write-Host ("`nNumber of Resources that support Diagnostic Logging: " + $TempList.Count)

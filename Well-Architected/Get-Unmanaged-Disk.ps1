@@ -20,7 +20,7 @@ foreach ($Subscription in $Global:Subscriptions) {
     # Set current subscription
     $AzContext = Set-AzContext -SubscriptionId $Subscription.Id -TenantId $Subscription.TenantId
     az account set --subscription $Subscription.Id
-    Write-Host ("`nProcessing " + $CurrentItem + " out of " + $Global:Subscriptions.Count + " Subscription: " + $Subscription.name) -ForegroundColor Yellow
+    Write-Host ("`nProcessing " + $CurrentItem + " out of " + $Global:Subscriptions.Count + " Subscription: " + $Subscription.Name) -ForegroundColor Yellow
 
     # Get Az VM List
     $CurrentItem++
@@ -28,7 +28,7 @@ foreach ($Subscription in $Global:Subscriptions) {
     $vms = Get-AzVM
 
     foreach ($vm in $vms) {
-        Write-Host ("`nProcessing Azure VM (" + $CurrentVMItem + " out of " + $vms.Count + ") of Subscription: " + $Subscription.name) -ForegroundColor White
+        Write-Host ("`nProcessing Azure VM (" + $CurrentVMItem + " out of " + $vms.Count + ") of Subscription: " + $Subscription.Name) -ForegroundColor White
         $CurrentVMItem++
 
         # OS Disk
