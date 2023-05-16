@@ -208,9 +208,9 @@ foreach ($Subscription in $Global:Subscriptions) {
         # Add-Record
         if ($array.Count -gt 0) {
             if ($vng.ActiveActive) {
-                $CurrentRedundancyType = "Zonal services with Active-Active"
+                $CurrentRedundancyType = "Zone Redundant with Active-Active"
             } else {
-                $CurrentRedundancyType = "Zonal services"
+                $CurrentRedundancyType = "Zone Redundant"
             }
             Add-Record -SubscriptionName $Subscription.Name -SubscriptionId $Subscription.Id -ResourceGroup $vng.ResourceGroupName -Location $vng.Location -InstanceName $vng.Name -InstanceType $InstanceType -InstanceTypeDetail $InstanceTypeDetail -InstanceSize $sku -CurrentRedundancyType $CurrentRedundancyType -EnabledAZone "Y" -DeployedZone $DeployedZone -Remark $remark
         } else {
