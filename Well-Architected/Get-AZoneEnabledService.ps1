@@ -496,6 +496,7 @@ foreach ($Subscription in $Global:Subscriptions) {
     #Region Azure Firewall
     $firewalls = Get-AzFirewall
     $InstanceType = "Azure Firewall"
+    $InstanceTypeDetail = ""
     $remark = ""
 
     foreach ($firewall in $firewalls) {
@@ -510,7 +511,7 @@ foreach ($Subscription in $Global:Subscriptions) {
         [array]$array = $firewall.Zones
 
         if ($array.Count -gt 0) {
-            $CurrentRedundancyType = "Zonal services"
+            $CurrentRedundancyType = "Zone Redundant"
             $EnabledAZone = "Y"
             [string]$DeployedZone = $array -join ","
         } else {
