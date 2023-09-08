@@ -49,13 +49,15 @@ foreach ($Subscription in $Global:Subscriptions) {
         Write-Host ("Recovery Services Vault: " + $RecoveryServicesVault.Name)
 
         # Azure VM
-        $Containers = Get-AzRecoveryServicesBackupContainer -ContainerType AzureVM -Status Registered -VaultId $RecoveryServicesVault.ID
+        #$Containers = Get-AzRecoveryServicesBackupContainer -ContainerType AzureVM -Status Registered -VaultId $RecoveryServicesVault.ID
+        $Containers = Get-AzRecoveryServicesBackupContainer -ContainerType AzureVM -VaultId $RecoveryServicesVault.ID
         foreach ($Container in $Containers) {
             $BackupItemVM += Get-AzRecoveryServicesBackupItem -Container $Container -WorkloadType AzureVM -VaultId $RecoveryServicesVault.ID
         }
 
         # SQL Server in Azure VM
-        $Containers = Get-AzRecoveryServicesBackupContainer -ContainerType AzureVMAppContainer -Status Registered -VaultId $RecoveryServicesVault.ID
+        #$Containers = Get-AzRecoveryServicesBackupContainer -ContainerType AzureVMAppContainer -Status Registered -VaultId $RecoveryServicesVault.ID
+        $Containers = Get-AzRecoveryServicesBackupContainer -ContainerType AzureVMAppContainer -VaultId $RecoveryServicesVault.ID
         foreach ($Container in $Containers) {
             $BackupItemSqlVM += Get-AzRecoveryServicesBackupItem -Container $Container -WorkloadType MSSQL -VaultId $RecoveryServicesVault.ID
         }
