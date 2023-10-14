@@ -46,6 +46,7 @@ function Clear-UnsupportedResourceType {
     $AzResources = $AzResources | ? {$_.ResourceType -ne "Microsoft.ContainerInstance/containerGroups"}
     $AzResources = $AzResources | ? {$_.ResourceType -ne "Microsoft.DataCatalog/catalogs"}
     $AzResources = $AzResources | ? {$_.ResourceType -ne "Microsoft.DevTestLab/schedules"}
+    $AzResources = $AzResources | ? {$_.ResourceType -ne "microsoft.desktopvirtualization/appattachpackages"}
     $AzResources = $AzResources | ? {$_.ResourceType -ne "Microsoft.MarketplaceApps/classicDevServices"}
     $AzResources = $AzResources | ? {$_.ResourceType -ne "microsoft.insights/actiongroups"}
     $AzResources = $AzResources | ? {$_.ResourceType -ne "microsoft.insights/activityLogAlerts"}
@@ -152,7 +153,7 @@ foreach ($Subscription in $Global:Subscriptions) {
 
     # Get Azure Resources
     $TempList = Get-AzResource | ? {$_.ResourceGroupName -notlike "databricks-rg*"}
-
+    $Global:checklist = $TempList
     # Filter Azure Resources that support Diagnostic Settings
     $TempList = Clear-UnsupportedResourceType -AzResources $TempList
     $TempList = $TempList | sort ResourceType, ResourceGroupName, ResourceName
@@ -160,7 +161,7 @@ foreach ($Subscription in $Global:Subscriptions) {
     
     # Define Throttle Limit
     # Declaration issue if define at the top of the script
-    $ThrottleLimit = 30
+    $ThrottleLimit = 20
 
     # Modify Throttle Limit
     if ($TempList.Count -lt $ThrottleLimit) {
@@ -182,8 +183,9 @@ foreach ($Subscription in $Global:Subscriptions) {
             # Script Variable
             $CurrentSubscriptionName = ($using:Subscription).Name
             $CurrentSubscriptionId  = ($using:Subscription).Id
+            $CurrentTenantId = ($using:Subscription).TenantId
             [int]$CurrentThread = $_
-            $LocalTempList = $using:TempList
+            [array]$LocalTempList = $using:TempList
             $CurrentDiagnosticSetting = @()
             #$CurrentExportPath = ($using:Global:ExcelOutputFolder + "DiagnosticSettingTempFile" + $_ + ".csv")
             $CurrentExportPath = ($using:Global:ExcelOutputFolder + "DiagnosticSettingTempFile" + $CurrentThread.ToString() + ".csv")
@@ -193,7 +195,7 @@ foreach ($Subscription in $Global:Subscriptions) {
             Start-Sleep -Seconds $num
 
             # Initialize
-            $AzContext = Set-AzContext -SubscriptionId $CurrentSubscriptionId 
+            $AzContext = Set-AzContext -SubscriptionId $CurrentSubscriptionId -Tenant $CurrentTenantId
             $error.Clear()
         
             # Split Single Array into Multiple Smaller Array  
@@ -210,11 +212,59 @@ foreach ($Subscription in $Global:Subscriptions) {
             }
         
             # Start Threading
+            Write-Host ("Thread $_ : Count > " + $LocalTempList.Count) -ForegroundColor DarkGreen
             Write-Host ("Thread $_ : Index From " + $StartIndex + " to " + $EndIndex) -ForegroundColor DarkGreen
-            foreach ($item in $LocalTempList[$StartIndex..$EndIndex]) {
+            try {
+            for ($i = $StartIndex; $i -le $EndIndex; $i++) {
                 Start-Sleep -Milliseconds 300
-                #Write-Host ("Resource: " + $item.Name)
+                $CurrentErrorCount = $error.Count 
+                $TempDiagnosticSettings = Get-AzDiagnosticSetting -ResourceId $LocalTempList[$i].Id
+                if ($CurrentErrorCount -ne $error.Count) {
+                    Write-Host ("`nProblematic Resource: " + $LocalTempList[$i].Id + "`n`nProblematic Resource Type: " + $LocalTempList[$i].ResourceType) -ForegroundColor Yellow
+                }
         
+                if ($TempDiagnosticSettings -eq $null) {
+                    $obj = New-Object -TypeName PSobject
+                    Add-Member -InputObject $obj -MemberType NoteProperty -Name "SubscriptionName" -Value $CurrentSubscriptionName
+                    Add-Member -InputObject $obj -MemberType NoteProperty -Name "SubscriptionId" -Value $CurrentSubscriptionId
+                    Add-Member -InputObject $obj -MemberType NoteProperty -Name "ResourceGroup" -Value $LocalTempList[$i].ResourceGroupName
+                    Add-Member -InputObject $obj -MemberType NoteProperty -Name "ResourceName" -Value $LocalTempList[$i].ResourceName
+                    Add-Member -InputObject $obj -MemberType NoteProperty -Name "ResourceType" -Value $LocalTempList[$i].ResourceType
+                    Add-Member -InputObject $obj -MemberType NoteProperty -Name "Location" -Value $LocalTempList[$i].Location
+                    Add-Member -InputObject $obj -MemberType NoteProperty -Name "EnabledDiagnostic" -Value "N"
+                    Add-Member -InputObject $obj -MemberType NoteProperty -Name "WorkspaceId" -Value "N/A"
+                    Add-Member -InputObject $obj -MemberType NoteProperty -Name "StorageAccountId" -Value "N/A"
+                    Add-Member -InputObject $obj -MemberType NoteProperty -Name "ServiceBusRuleId" -Value "N/A"
+                    Add-Member -InputObject $obj -MemberType NoteProperty -Name "EventHubAuthorizationRuleId" -Value "N/A"
+                    $CurrentDiagnosticSetting += $obj
+                } else {
+                    foreach ($TempDiagnosticSetting in $TempDiagnosticSettings) {
+                        $obj = New-Object -TypeName PSobject
+                        Add-Member -InputObject $obj -MemberType NoteProperty -Name "SubscriptionName" -Value $CurrentSubscriptionName
+                        Add-Member -InputObject $obj -MemberType NoteProperty -Name "SubscriptionId" -Value $CurrentSubscriptionId
+                        Add-Member -InputObject $obj -MemberType NoteProperty -Name "ResourceGroup" -Value $LocalTempList[$i].ResourceGroupName
+                        Add-Member -InputObject $obj -MemberType NoteProperty -Name "ResourceName" -Value $LocalTempList[$i].ResourceName
+                        Add-Member -InputObject $obj -MemberType NoteProperty -Name "ResourceType" -Value $LocalTempList[$i].ResourceType
+                        Add-Member -InputObject $obj -MemberType NoteProperty -Name "Location" -Value $LocalTempList[$i].Location
+                        Add-Member -InputObject $obj -MemberType NoteProperty -Name "EnabledDiagnostic" -Value "Y"
+                        Add-Member -InputObject $obj -MemberType NoteProperty -Name "WorkspaceId" -Value $TempDiagnosticSetting.WorkspaceId
+                        Add-Member -InputObject $obj -MemberType NoteProperty -Name "StorageAccountId" -Value $TempDiagnosticSetting.StorageAccountId
+                        Add-Member -InputObject $obj -MemberType NoteProperty -Name "ServiceBusRuleId" -Value $TempDiagnosticSetting.ServiceBusRuleId
+                        Add-Member -InputObject $obj -MemberType NoteProperty -Name "EventHubAuthorizationRuleId" -Value $TempDiagnosticSetting.EventHubAuthorizationRuleId
+                        
+                        # Save to Array
+                        $CurrentDiagnosticSetting += $obj
+                    }
+                }
+            }
+            } catch {
+                Write-Host $_.Exception.InnerException
+                Write-Host $_.Exception.Data
+                Write-Host $_.Exception.StackTrace
+            }
+        
+            <#foreach ($item in $LocalTempList[$StartIndex..$EndIndex]) {
+                Start-Sleep -Milliseconds 350
                 $CurrentErrorCount = $error.Count 
                 $TempDiagnosticSettings = Get-AzDiagnosticSetting -ResourceId $item.Id
                 if ($CurrentErrorCount -ne $error.Count) {
@@ -254,8 +304,8 @@ foreach ($Subscription in $Global:Subscriptions) {
                         $CurrentDiagnosticSetting += $obj
                     }
                 }
-            }
-        
+            }#>
+
             # Export to Temp Path
             $CurrentDiagnosticSetting | Export-Csv -Path $CurrentExportPath -NoTypeInformation -Force -Confirm:$false
         } -ThrottleLimit $ThrottleLimit
